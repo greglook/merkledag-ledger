@@ -26,7 +26,9 @@
                          [match handler]))
                      (get parser state))]
         (let [[next-state next-value] (handler value match)]
-          (recur next-state next-value (next lines)))
+          (if next-value
+            (recur next-state next-value (next lines))
+            (recur next-state value lines)))
         (assoc value
           :tag :error
           :error/last-tag (:tag value)
@@ -43,6 +45,11 @@
   ([next-state k val-fn]
    (fn [value [line match]]
      [next-state (assoc value k (val-fn match))])))
+
+
+(defn- tack-on
+  [value k v]
+  (update value k (fnil conj []) v))
 
 
 (defn parse-commodity
@@ -67,7 +74,7 @@
   (run-parser
     {:start   {#"; (.+)"
                (fn [value [line match]]
-                 [:start (update value :account/comments (fnil conj []) match)])
+                 [:start (tack-on value :account/comments match)])
                #"account (.+)"
                (assoc-match :options :account/path)}
      :options {#"    note (.+)"
@@ -77,6 +84,58 @@
                #"    assert (.+)"
                (assoc-match :options :account/assert)}}
     {:tag :account}
+    lines))
+
+
+(defn parse-tx
+  [lines]
+  (run-parser
+    {:start   {#"; (.+)"
+               (fn [tx [line match]]
+                 [:start (tack-on tx :tx/sources match)])
+               #"(\d{4}-\d\d-\d\d) ?([*!]?) (.+)"
+               (fn [tx [line date status memo]]
+                 [:meta (assoc tx
+                               :tx/date date
+                               :tx/status (case status "*" :cleared "!" :pending nil)
+                               :tx/memo memo)])}
+     :meta [[#"    ; ([a-zA-Z-]+): (.+)"
+             (fn [tx [line tag value]]
+               [:meta (update tx :tx/meta assoc (keyword tag) value)])]
+            [#"    ; :([a-zA-Z-]+):"
+             (fn [tx [line tag]]
+               [:meta (update tx :tx/meta assoc (keyword tag) true)])]
+            [#"    ; (.+)"
+             (fn [tx [line match]]
+               [:meta (tack-on tx :tx/comments match)])]
+            [#"    [a-zA-Z].+"
+             (constantly [:posting])]]
+     :posting [[#"    ([a-zA-Z0-9-]+(?::\w+|:\w+ \w+)*)"
+                (fn [tx [line account]]
+                  [:posting (tack-on tx :tx/postings {:posting/account account})])]
+               [#"    ([a-zA-Z0-9-]+(?::\w+|:\w+ \w+)*)  \s*(-?\$[0-9,]+\.\d+|[A-Z]+ -?[0-9,]+\.\d+|-?[0-9,]+\.\d+ [a-zA-Z0-9_]+)"
+                (fn [tx [line account value]]
+                  [:posting (tack-on tx :tx/postings {:posting/account account, :posting/amount value})])]
+               [#"        ; ([a-zA-Z-]+): (.+)"
+                (fn [tx [line tag value]]
+                  (let [posting (last (:tx/postings tx))
+                        posting' (tack-on posting :posting/meta [(keyword tag) value])
+                        postings (vec (concat (butlast (:tx/postings tx)) [posting']))]
+                    [:posting (assoc tx :tx/postings postings)]))]
+               [#"        ; :([a-zA-Z-]+):"
+                (fn [tx [line tag]]
+                  (let [posting (last (:tx/postings tx))
+                        posting' (tack-on posting :posting/meta [(keyword tag) true])
+                        postings (vec (concat (butlast (:tx/postings tx)) [posting']))]
+                    [:posting (assoc tx :tx/postings postings)]))]
+               [#"        ; (.+)"
+                (fn [tx [line match]]
+                  (let [posting (last (:tx/postings tx))
+                        posting' (tack-on posting :posting/comments match)
+                        postings (vec (concat (butlast (:tx/postings tx)) [posting']))]
+                    [:posting (assoc tx :tx/postings postings)]))]]
+     }
+    {:tag :tx}
     lines))
 
 
@@ -112,6 +171,8 @@
       (parse-commodity lines)
     (some (partial re-seq #"^account ") lines)
       (parse-account lines)
+    (some (partial re-seq #"^\d{4}-\d\d-\d\d ") lines)
+      (parse-tx lines)
     :else
       {:tag :unknown, :unknown/lines (vec lines)}))
 
