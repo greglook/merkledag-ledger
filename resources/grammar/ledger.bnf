@@ -68,12 +68,12 @@ TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> )
 TxComment = Indent , <'; '> , Text , NL ;
 
 (* Postings *)
-Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
+Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , PostingBalance ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
 PostingAmount = Quantity ;
 PostingCost = <'{'> , Quantity , <'}'> ;
 PostingPrice = <'@ '> , Quantity ;
 PostingLotDate = <'['> , Date , <']'> ;
-BalanceAssertion = ' = ' , Quantity ;
+PostingBalance = <' = '> , <' '*> , Quantity ;
 PostingDetail = Indent , Indent , <'; '> , ( PostingDate | PostingMeta | PostingComment ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
 PostingMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
