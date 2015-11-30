@@ -1,26 +1,57 @@
 (* ledger grammar file *)
 (* vim: set ft=ebnf : *)
 
-Ledger = ( EmptyLine | CommentHeader | CommentBlock )+;
+ledger = (
+      NL
+    | CommentHeader
+    | CommentBlock
+    | AccountDefinition
+    | CommodityDefinition
+    | CommodityConversion
+    | CommodityPrice
+)+;
 
 
-<EmptyLine> = <'\n'> ;
-CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
-CommentBlock = ( <'; '> , Text , <'\n'> )+ ;
-
-
-Commodity = 'commodity ' , CommodityCode , '\n' , CommodityDirective* ;
-CommodityCode = #"[a-zA-Z0-9$]+" ;
-CommodityDirective = '    ' , ( CommodityNote | CommodityFormat | CommodityOption ) , '\n' ;
-CommodityNote = 'note ' , Text ;
-CommodityFormat = 'format ' , Text ;
-CommodityOption = 'nomarket' | 'default' ;
-
-
+(* Text *)
+<NL> = <'\n'> ;
+<Indent> = <'    '> ;
 <Text> = #"\S?[^\n]*\S" ;
-<ws> = <( ' ' | '\t' | '\r' | '\n' )*> ;
 
+(* Dates *)
+Date = #"\d{4}-\d\d-\d\d"
+
+(* Numbers *)
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
 <Digit>        = '0' | NonZeroDigit ;
-Integer        = Digit | ( NonZeroDigit , Digit+ ) ;
+Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | ',' )+ ) ) , [ '.' , Digit+ ] ;
 
+(* Comments *)
+CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
+CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
+
+(* Account Definitions *)
+<AccountPathWord> = #"[A-Z0-9][a-zA-Z0-9-]+" ;
+AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
+AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
+AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
+AccountName = AccountPath | AccountAlias ;
+
+AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
+<AccountDirective> = Indent , ( AccountAliasDirective | AccountNote | AccountAssertion ) , NL ;
+AccountAliasDirective = <'alias '> , AccountAlias ;
+AccountNote = <'note '> , Text ;
+AccountAssertion = <'assert '> , Text ;
+
+(* Commodity Definitions *)
+CommodityCode = '$' | #"[a-zA-Z][a-zA-Z0-9_]+" ;
+Quantity = ( CommodityCode , <[' ']> , Number ) | ( Number , <[' ']> , CommodityCode ) ;
+
+CommodityDefinition = <'commodity '> , CommodityCode , NL , CommodityDirective* ;
+<CommodityDirective> = Indent , ( CommodityNote | CommodityFormat | CommodityOption ) , NL ;
+CommodityNote = <'note '> , Text ;
+CommodityFormat = <'format '> , Text ;
+CommodityOption = 'nomarket' | 'default' ;
+
+(* Commodity Conversions and Prices *)
+CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
+CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
