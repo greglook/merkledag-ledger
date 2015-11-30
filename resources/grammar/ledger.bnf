@@ -5,6 +5,7 @@ ledger = (
       NL
     | CommentHeader
     | CommentBlock
+    | IncludeFile
     | AccountDefinition
     | CommodityDefinition
     | CommodityConversion
@@ -25,9 +26,10 @@ Date = #"\d{4}-\d\d-\d\d"
 <Digit>        = '0' | NonZeroDigit ;
 Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | ',' )+ ) ) , [ '.' , Digit+ ] ;
 
-(* Comments *)
+(* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
 CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
+IncludeFile = <'include '> , #"\S+" , NL ;
 
 (* Account Definitions *)
 <AccountPathWord> = #"[A-Z0-9][a-zA-Z0-9-]+" ;
