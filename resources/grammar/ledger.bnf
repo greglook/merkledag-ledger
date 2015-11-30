@@ -37,6 +37,7 @@ IncludeFile = <'include '> , #"\S+" , NL ;
 AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
 AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
 AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
+<AccountRef> = AccountPath | AccountAlias ;
 
 AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
 <AccountDirective> = Indent , ( AccountAliasDirective | AccountNote | AccountAssertion ) , NL ;
@@ -68,7 +69,11 @@ TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> )
 TxComment = Indent , <'; '> , Text , NL ;
 
 (* Postings *)
-Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , PostingBalance ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
+Posting = Indent , PostingAccount , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , PostingBalance ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
+<PostingAccount> = PostingRealAccount | PostingSoftVirtualAccount | PostingHardVirtualAccount ;
+PostingRealAccount = AccountRef ;
+PostingSoftVirtualAccount = <'('> , AccountRef , <')'> ;
+PostingHardVirtualAccount = <'['> , AccountRef , <']'> ;
 PostingAmount = Quantity ;
 PostingCost = <'{'> , Quantity , <'}'> ;
 PostingPrice = <'@ '> , Quantity ;
