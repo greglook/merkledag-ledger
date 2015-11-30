@@ -21,6 +21,7 @@ LedgerEntry = (
 
 (* Dates *)
 Date = #"\d{4}-\d\d-\d\d" ;
+<EffectiveDate> = <'['> , <['=']> , Date , <']'> ;
 
 (* Numbers *)
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
@@ -68,13 +69,12 @@ TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> )
 TxComment = Indent , <'; '> , Text , NL ;
 
 (* Postings *)
-Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , [ <' '> , <' '+> , ( PostingMeta / PostingComment ) ] , NL , PostingDetail* ;
+Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
 PostingAmount = Quantity ;
 PostingCost = <'{'> , Quantity , <'}'> ;
 PostingPrice = <'@ '> , Quantity ;
 PostingLotDate = <'['> , Date , <']'> ;
 BalanceAssertion = ' = ' , Quantity ;
-PostingDetail = Indent , Indent , ( PostingDate / PostingMeta / PostingComment ) , NL ;
-PostingDate = <'; ['> , ['='] , Date , <']'> ;
-PostingMeta = <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) ;
-PostingComment = <'; '> , Text ;
+PostingDetail = Indent , Indent , <'; '> , ( EffectiveDate | PostingMeta | PostingComment ) , NL ;
+PostingMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
+PostingComment = !PostingMeta , Text ;
