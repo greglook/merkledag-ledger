@@ -3,16 +3,16 @@
   (:require
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [instaparse.core :as insta]))
+    [instaparse.core :as parse]))
 
 
 (def ledger-parser
-  (insta/parser (io/resource "grammar/ledger.bnf")))
+  (parse/parser (io/resource "grammar/ledger.bnf")))
 
 
 (defn interpret-parse
   [tree]
-  (insta/transform
+  (parse/transform
     {:CommodityCode (fn [code] [:CommodityCode (if (= "$" code) 'USD (symbol code))])
      :Quantity (fn [& children]
                  (let [cfg (into {} children)]
@@ -25,12 +25,23 @@
     tree))
 
 
+(defn group-lines
+  "Takes a sequence of lines and returns a new sequence of groups of lines
+  which were separated by blank lines in the input."
+  [lines]
+  (->> lines
+       (partition-by #{""})
+       (remove #(every? #{""} %))
+       (map #(str (str/join "\n" %) "\n"))))
+
+
 (defn parse-file
   [data file]
   (->> (io/file file)
-       (slurp)
-       (ledger-parser)
-       (interpret-parse)))
+       (io/reader)
+       (line-seq)
+       (group-lines)
+       (map (comp interpret-parse ledger-parser))))
 
 
 (defn parse-files
