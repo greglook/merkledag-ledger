@@ -1,9 +1,8 @@
 (* ledger grammar file *)
 (* vim: set ft=ebnf : *)
 
-ledger = (
-      NL
-    | CommentHeader
+LedgerEntry = (
+      CommentHeader
     | CommentBlock
     | IncludeFile
     | AccountDefinition
@@ -30,11 +29,11 @@ Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | <','> )+ ) ) , [ '
 
 (* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
-CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , &NL ;
+CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
 IncludeFile = <'include '> , #"\S+" , NL ;
 
 (* Account Definitions *)
-<AccountPathWord> = #"[A-Z0-9][a-zA-Z0-9-]+" ;
+<AccountPathWord> = #"[A-Z0-9&][a-zA-Z0-9-.]*" ;
 AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
 AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
 AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
@@ -69,12 +68,13 @@ TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> )
 TxComment = Indent , <'; '> , Text , NL ;
 
 (* Postings *)
-Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , NL , PostingDetail* ;
+Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , [ <' '> , <' '+> , ( PostingMeta / PostingComment ) ] , NL , PostingDetail* ;
 PostingAmount = Quantity ;
 PostingCost = <'{'> , Quantity , <'}'> ;
 PostingPrice = <'@ '> , Quantity ;
+PostingLotDate = <'['> , Date , <']'> ;
 BalanceAssertion = ' = ' , Quantity ;
-PostingDetail = PostingDate / PostingMeta / PostingComment ;
-PostingDate = Indent , Indent , <'; ['> , ['='] , Date , <']'> , NL ;
-PostingMeta = Indent , Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) , NL ;
-PostingComment = Indent , Indent , <'; '> , Text , NL ;
+PostingDetail = Indent , Indent , ( PostingDate / PostingMeta / PostingComment ) , NL ;
+PostingDate = <'; ['> , ['='] , Date , <']'> ;
+PostingMeta = <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) ;
+PostingComment = <'; '> , Text ;
