@@ -14,8 +14,8 @@
 
 (defn parse-input
   [input]
-  (->> input
-       (ledger-parser)
+  (->> (ledger-parser input)
+       #_
        (walk/postwalk
          (fn [v]
            (if (vector? v)

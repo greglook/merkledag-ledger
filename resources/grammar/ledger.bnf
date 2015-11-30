@@ -1,15 +1,26 @@
 (* ledger grammar file *)
-(* vim: ft=antlr4 *)
+(* vim: set ft=ebnf : *)
 
-expr: term (ws (PLUS | MINUS) ws term)*;
-term: INT (ws (MULT | DIV) ws INT)*;
+Ledger = ( EmptyLine | CommentHeader | CommentBlock )+;
 
-PLUS: '+'
-MINUS: '-'
-MULT: '*'
-DIV: '/'
 
-<DIGIT>: '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-INT: (DIGIT)+
+<EmptyLine> = <'\n'> ;
+CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
+CommentBlock = ( <'; '> , Text , <'\n'> )+ ;
 
-<ws>: <( ' ' | '\t' | '\r' | '\n'| '\u000C' )*>
+
+Commodity = 'commodity ' , CommodityCode , '\n' , CommodityDirective* ;
+CommodityCode = #"[a-zA-Z0-9$]+" ;
+CommodityDirective = '    ' , ( CommodityNote | CommodityFormat | CommodityOption ) , '\n' ;
+CommodityNote = 'note ' , Text ;
+CommodityFormat = 'format ' , Text ;
+CommodityOption = 'nomarket' | 'default' ;
+
+
+<Text> = #"\S?[^\n]*\S" ;
+<ws> = <( ' ' | '\t' | '\r' | '\n' )*> ;
+
+<NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+<Digit>        = '0' | NonZeroDigit ;
+Integer        = Digit | ( NonZeroDigit , Digit+ ) ;
+
