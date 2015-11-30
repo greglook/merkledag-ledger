@@ -2,7 +2,32 @@
   "..."
   (:require
     [clojure.java.io :as io]
-    [clojure.string :as str]))
+    [clojure.string :as str]
+    [clojure.walk :as walk]
+    [instaparse.core :as parse]))
+
+
+
+(def ledger-parser
+  (parse/parser (io/resource "grammar/ledger.bnf")))
+
+
+(defn parse-input
+  [input]
+  (->> input
+       (ledger-parser)
+       (walk/postwalk
+         (fn [v]
+           (if (vector? v)
+             (case (first v)
+               :INT (Integer/parseInt (str/join (rest v)))
+               :PLUS '+
+               :MINUS '-
+               :MULT '*
+               :DIV '/
+               v)
+             v)))))
+
 
 
 (defn group-lines
