@@ -41,8 +41,8 @@
             (let [parsed (finance/ledger-parser entry)]
               ; Try parsing - if failure, print message:
               (if (parse/failure? parsed)
-                (do (printf "\nParsing entry %d failed:\n" i)
-                    (when-not (contains? indexes i) (println entry))
+                (do (printf "\nParsing entry %d failed:\n\n" i)
+                    (when-not (contains? indexes i) (println entry ""))
                     (puget/cprint parsed)
                     (recur (inc i) (rest entries) (inc errors)))
                 ; Count number of parses - if ambiguous, print first 5:
