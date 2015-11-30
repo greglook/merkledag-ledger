@@ -6,7 +6,6 @@
     [instaparse.core :as insta]))
 
 
-
 (def ledger-parser
   (insta/parser (io/resource "grammar/ledger.bnf")))
 

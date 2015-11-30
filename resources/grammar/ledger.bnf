@@ -10,6 +10,7 @@ ledger = (
     | CommodityDefinition
     | CommodityConversion
     | CommodityPrice
+    | Transaction
 )+;
 
 
@@ -17,18 +18,19 @@ ledger = (
 <NL> = <'\n'> ;
 <Indent> = <'    '> ;
 <Text> = #"\S?[^\n]*\S" ;
+<TagName> = #"[a-zA-Z0-9-]+" ;
 
 (* Dates *)
-Date = #"\d{4}-\d\d-\d\d"
+Date = #"\d{4}-\d\d-\d\d" ;
 
 (* Numbers *)
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
 <Digit>        = '0' | NonZeroDigit ;
-Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | ',' )+ ) ) , [ '.' , Digit+ ] ;
+Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | <','> )+ ) ) , [ '.' , Digit+ ] ;
 
 (* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
-CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
+CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , &NL ;
 IncludeFile = <'include '> , #"\S+" , NL ;
 
 (* Account Definitions *)
@@ -36,7 +38,6 @@ IncludeFile = <'include '> , #"\S+" , NL ;
 AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
 AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
 AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
-AccountName = AccountPath | AccountAlias ;
 
 AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
 <AccountDirective> = Indent , ( AccountAliasDirective | AccountNote | AccountAssertion ) , NL ;
@@ -57,3 +58,23 @@ CommodityOption = 'nomarket' | 'default' ;
 (* Commodity Conversions and Prices *)
 CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
+
+(* Transactions *)
+Transaction = TxSource* , Date , [ <' '> , TxStatus ] , <' '> , !TxStatus , TxMemo , NL , TxDetail* , Posting+ ;
+TxSource = <'; '> , AccountAlias , <'|'> , Text , NL ;
+TxStatus = '!' | '*' ;
+TxMemo = Text ;
+TxDetail = TxMeta | !TxMeta TxComment ;
+TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) , NL ;
+TxComment = Indent , <'; '> , Text , NL ;
+
+(* Postings *)
+Posting = Indent , ( AccountPath | AccountAlias ) , [ <' '+> , PostingAmount , [ <' '> , PostingCost ] , [ <' '> , PostingPrice ] ] , [ <' '*> , BalanceAssertion ] , NL , PostingDetail* ;
+PostingAmount = Quantity ;
+PostingCost = <'{'> , Quantity , <'}'> ;
+PostingPrice = <'@ '> , Quantity ;
+BalanceAssertion = ' = ' , Quantity ;
+PostingDetail = PostingDate / PostingMeta / PostingComment ;
+PostingDate = Indent , Indent , <'; ['> , ['='] , Date , <']'> , NL ;
+PostingMeta = Indent , Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) , NL ;
+PostingComment = Indent , Indent , <'; '> , Text , NL ;
