@@ -1,6 +1,7 @@
 (ns user
   (:require
     [blocks.core :as block]
+    [clojure.data :refer [diff]]
     [clojure.java.io :as io]
     [clojure.repl :refer :all]
     [clojure.stacktrace :refer [print-cause-trace]]
@@ -47,11 +48,12 @@
                 ; Count number of parses - if ambiguous, print first 5:
                 (let [parses (parse/parses finance/ledger-parser entry)]
                   (if (< 1 (count parses))
-                    (do (printf "\nParsing entry %d is ambiguous (%d parses):\n"
+                    (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
                                 i (count parses))
-                        (when-not (contains? indexes i) (println entry))
-                        (println)
-                        (puget/cprint (take 5 parses))
+                        (when-not (contains? indexes i) (println entry ""))
+                        (puget/cprint (take 2 parses))
+                        (println "\nDifferences:")
+                        (puget/cprint (diff (first parses) (second parses)))
                         (recur (inc i) (rest entries) (inc errors)))
                     ; Try interpreting the parse
                     (if (try
