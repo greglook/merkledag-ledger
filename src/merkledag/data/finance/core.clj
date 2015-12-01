@@ -13,15 +13,20 @@
 (defn interpret-parse
   [tree]
   (parse/transform
-    {:CommodityCode (fn [code] [:CommodityCode (if (= "$" code) 'USD (symbol code))])
+    {:CommodityCode (fn [code] [:commodity/code (if (= "$" code) 'USD (symbol code))])
+     :Number (fn [& digits] [:number (BigDecimal. (str/join digits))])
+     :Percentage (fn [number] [:% (/ (second number) 100)])
      :Quantity (fn [& children]
                  (when (not= '("0") children)
                    (let [cfg (into {} children)]
                      (tagged-literal 'finance/$
-                                     [(:Number cfg)
-                                      (:CommodityCode cfg)]))))
-     :Number (fn [& digits] [:Number (BigDecimal. (str/join digits))])
+                                     [(:number cfg)
+                                      (:commodity/code cfg)]))))
      :AccountPathSegment (fn [& words] (str/join words))
+     :TxMeta (fn ([k] [:tx/meta (keyword k) true])
+                 ([k v] [:tx/meta (keyword k) v]))
+     :PostingMeta (fn ([k] [:posting/meta (keyword k) true])
+                      ([k v] [:posting/meta (keyword k) v]))
     }
     tree))
 

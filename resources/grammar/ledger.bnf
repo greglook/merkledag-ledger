@@ -26,6 +26,7 @@ Date = #"\d{4}-\d\d-\d\d" ;
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
 <Digit>        = '0' | NonZeroDigit ;
 Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | <','> )+ ) ) , [ '.' , Digit+ ] ;
+Percentage     = Number , <'%'> ;
 
 (* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
@@ -64,9 +65,9 @@ Transaction = TxSource* , Date , [ <' '> , TxStatus ] , <' '> , !TxStatus , TxMe
 TxSource = <'; '> , AccountAlias , <'|'> , Text , NL ;
 TxStatus = '!' | '*' ;
 TxMemo = Text ;
-TxDetail = TxMeta | !TxMeta TxComment ;
-TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> ) , NL ;
-TxComment = Indent , <'; '> , Text , NL ;
+<TxDetail> = Indent , <'; '> , ( TxMeta | TxComment ) , NL ;
+TxMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
+TxComment = !TxMeta , Text ;
 
 (* Postings *)
 Posting = Indent ,
@@ -90,7 +91,15 @@ PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
 PostingPrice = <'@'> , <' '+> , Quantity ;
 PostingBalance = <'='> , <' '+> , Quantity ;
-PostingDetail = Indent , Indent , <'; '> , ( PostingDate | PostingMeta | PostingComment ) , NL ;
+<PostingDetail> = Indent , Indent , <'; '> , ( PostingDate | PostingMeta | LineItem | PostingComment ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
-PostingMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
-PostingComment = !PostingDate , !PostingMeta , Text ;
+PostingMeta = !LineItemTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+PostingComment = !LineItemTag , !PostingDate , !PostingMeta , Text ;
+
+LineItem = <LineItemTag> , #"\S+( \S+)*" , [ <' '+> , LineItemAmount , [ <' '+> , LineItemDetail ] , [ <' '+> , LineItemTaxGroup ] ] ;
+LineItemTag = 'item: ' ;
+LineItemAmount = Quantity ;
+<LineItemDetail> = <'('> , <' '*> , LineItemQuantity , <' '+> , <'@'> , <' '+> , LineItemCost , <')'> ;
+LineItemQuantity = Number | Quantity ;
+LineItemCost = Quantity | Percentage ;
+LineItemTaxGroup = #"\*+" ;
