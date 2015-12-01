@@ -20,7 +20,7 @@
   [elapsed]
   (cond
     (> elapsed 60000)
-      (format "%d:%05.2f" (int (/ elapsed 60)) (mod elapsed 60))
+      (format "%d:%04.1f" (int (/ elapsed 60000)) (mod (/ elapsed 1000) 60))
     (> elapsed 1000)
       (format "%.3f seconds" (/ elapsed 1000))
     :else
