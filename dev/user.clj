@@ -38,34 +38,36 @@
      (when show?
        (printf "\nParsing entry %d:\n\n%s\n" index text))
      ; Try parsing the text
-     (let [parsed (finance/ledger-parser text)]
-       (if (parse/failure? parsed)
+     (let [parses (parse/parses finance/ledger-parser text)]
+       (cond
          ; On failure, print out input and error message
-         (do (printf "\nParsing entry %d failed:\n\n" index)
-             (when-not show? (println text ""))
-             (puget/cprint parsed)
-             false)
-         ; Calculate all possible parses
-         (let [parses (parse/parses finance/ledger-parser text)]
-           (if (< 1 (count parses))
-             ; If parsing is ambiguous, print first two and diff
-             (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
-                         index (count parses))
-                 (when-not show? (println text ""))
-                 (puget/cprint (take 2 parses))
-                 (println "\nDifferences:")
-                 (puget/cprint (diff (first parses) (second parses)))
-                 false)
-             ; Try interpreting the parse
-             (let [interpreted (finance/interpret-parse parsed)]
+         (parse/failure? parses)
+           (do (printf "\nParsing entry %d failed:\n\n" index)
+               (when-not show? (println text ""))
+               (puget/cprint (parse/get-failure parses))
+               false)
+
+         ; If parsing is ambiguous, print first two and diff
+         (< 1 (count parses))
+           (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
+                       index (count parses))
+               (when-not show? (println text ""))
+               (puget/cprint (take 2 parses))
+               (println "\nDifferences:")
+               (puget/cprint (diff (first parses) (second parses)))
+               false)
+
+           ; Try interpreting the parse
+           :else
+             (let [interpreted (finance/interpret-parse (first parses))]
                ; If showing, explicitly print conversion:
                (when show?
                  (println "Parsed:")
-                 (puget/cprint parsed)
+                 (puget/cprint (first parses))
                  (println)
                  (println "Interpreted:")
                  (puget/cprint interpreted))
-                 true)))))
+                 true)))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
        (when-not show? (println text ""))
