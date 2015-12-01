@@ -1,7 +1,7 @@
 (* ledger grammar file *)
 (* vim: set ft=ebnf : *)
 
-LedgerEntry = (
+<LedgerEntry> = (
       CommentHeader
     | CommentBlock
     | IncludeFile

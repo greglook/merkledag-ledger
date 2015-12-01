@@ -41,7 +41,7 @@
        (io/reader)
        (line-seq)
        (group-lines)
-       (map (comp interpret-parse ledger-parser))))
+       (mapcat (comp interpret-parse ledger-parser))))
 
 
 (defn parse-files
