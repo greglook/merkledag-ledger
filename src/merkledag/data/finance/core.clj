@@ -15,10 +15,11 @@
   (parse/transform
     {:CommodityCode (fn [code] [:CommodityCode (if (= "$" code) 'USD (symbol code))])
      :Quantity (fn [& children]
-                 (let [cfg (into {} children)]
-                 (tagged-literal 'finance/$
-                                 [(:Number cfg)
-                                  (:CommodityCode cfg)])))
+                 (when (not= '("0") children)
+                   (let [cfg (into {} children)]
+                     (tagged-literal 'finance/$
+                                     [(:Number cfg)
+                                      (:CommodityCode cfg)]))))
      :Number (fn [& digits] [:Number (BigDecimal. (str/join digits))])
      :AccountPathSegment (fn [& words] (str/join words))
     }
