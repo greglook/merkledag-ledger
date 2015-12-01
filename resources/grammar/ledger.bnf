@@ -69,16 +69,27 @@ TxMeta = Indent , <'; '> , ( TagName , <': '> , Text | <':'> , TagName , <':'> )
 TxComment = Indent , <'; '> , Text , NL ;
 
 (* Postings *)
-Posting = Indent , PostingAccount , [ <' '+> , PostingAmount , [ <' '> , PostingCost , [ <' '> , PostingLotDate ] ] , [ <' '> , PostingPrice ] ] , [ <' '*> , PostingBalance ] , [ <' '+> , <' ; '> , ( PostingMeta | PostingComment ) ] , NL , PostingDetail* ;
+Posting = Indent ,
+          PostingAccount ,
+          [ <'  '> ,
+            [ <' '*> , PostingAmount ,
+              [ <' '+> , PostingLotCost ,
+                [ <' '+> , PostingLotDate ] ] ,
+              [ <' '+> , PostingPrice ] ] ,
+            [ <' '*> , PostingBalance ] ,
+            [ <' '*> , <'  ; '> , ( PostingMeta | PostingComment ) ] ] ,
+          NL ,
+          PostingDetail* ;
+
 <PostingAccount> = PostingRealAccount | PostingSoftVirtualAccount | PostingHardVirtualAccount ;
 PostingRealAccount = AccountRef ;
 PostingSoftVirtualAccount = <'('> , AccountRef , <')'> ;
 PostingHardVirtualAccount = <'['> , AccountRef , <']'> ;
 PostingAmount = Quantity ;
-PostingCost = <'{'> , Quantity , <'}'> ;
-PostingPrice = <'@ '> , Quantity ;
+PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
-PostingBalance = <' = '> , <' '*> , Quantity ;
+PostingPrice = <'@'> , <' '+> , Quantity ;
+PostingBalance = <'='> , <' '+> , Quantity ;
 PostingDetail = Indent , Indent , <'; '> , ( PostingDate | PostingMeta | PostingComment ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
 PostingMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
