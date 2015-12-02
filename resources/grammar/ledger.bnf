@@ -17,16 +17,12 @@
 <NL> = <'\n'> ;
 <Indent> = <'    '> ;
 <Text> = #"\S?[^\n]*\S" ;
-<TagName> = #"[a-zA-Z0-9-]+" ;
 
 (* Dates *)
 Date = #"\d{4}-\d\d-\d\d" ;
 Time = ( #"\d\d:\d\d" | #"\d\d:\d\d:\d\d" ) , [ <[' ']> , TimeZone ] ;
 TimeZone = 'Z' | #"-?\d\d:\d\d" | #"[A-Z][a-zA-Z]+(/[a-zA-Z0-9_-]+)*" ;
 DateTime = Date , <( 'T' | ' ' )> , Time ;
-
-TimeMetaTag = 'time: ' ;
-TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 
 (* Numbers *)
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
@@ -70,6 +66,15 @@ CommodityOption = 'nomarket' | 'default' ;
 (* Commodity Conversions and Prices *)
 CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
+
+(* Standard Metadata *)
+<TagName> = #"[a-zA-Z0-9-]+" ;
+
+TimeMetaTag = 'time: ' ;
+TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
+
+SourceMetaTag = 'source: ' ;
+SourceMeta = <SourceMetaTag> , TagName , <'|'> , Text ;
 
 (* Transactions *)
 Transaction = Date ,
