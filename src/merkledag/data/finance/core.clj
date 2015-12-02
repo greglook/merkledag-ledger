@@ -179,7 +179,14 @@
                  :items    (collect-all :posting/line-item)
                  :comments (collect-all :PostingComment)}
                 children)
-              (update-time))]))
+              (update-time)
+              (as-> posting
+                (cond-> posting
+                  (and (or (nil? amount) (zero? (first (:form amount))))
+                       (= :balanced-virtual posting-type)
+                       (:balance posting))
+                    (-> (assoc :type :balance-check)
+                        (dissoc :amount)))))]))
 
      :TxMeta (fn ([k]   [:tx/meta (keyword k) true])
                  ([k v] [:tx/meta (keyword k) v]))
