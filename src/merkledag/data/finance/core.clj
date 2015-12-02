@@ -133,7 +133,6 @@
                              [(:number cfg)
                               (:commodity-code cfg)]))))
 
-
      :AccountPathSegment (fn [& words] (str/join words))
      :AccountPath vector
      :AccountAlias keyword
@@ -144,8 +143,7 @@
        (fn [desc & children]
          [:posting/line-item
           (collect
-            {:type :finance/line-item
-             :title desc}
+            {:title desc}
             {:amount (collect-one :LineItemAmount)
              :quantity (collect-one :LineItemQuantity)
              :cost (collect-one :LineItemCost)
@@ -192,11 +190,12 @@
 
      :Transaction
        (fn [& children]
+         ; TODO: save substring that was parsed into this tx as a source
          [:Transaction
           (->
             {}
             (collect
-              {:title    (collect-one :tx/memo)
+              {:title    (collect-one :TxMemo)
                :date     (collect-one :TxDate)
                :time     (collect-one :TimeMeta)
                :status   (collect-one :tx/status)
