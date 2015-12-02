@@ -182,7 +182,8 @@
               (update-time)
               (as-> posting
                 (cond-> posting
-                  (and (or (nil? amount) (zero? (first (:form amount))))
+                  (and (or (nil? (first (:form amount)))
+                           (zero? (first (:form amount))))
                        (= :balanced-virtual posting-type)
                        (:balance posting))
                     (-> (assoc :type :balance-check)
@@ -196,14 +197,13 @@
                  [:tx/status (case chr "!" :pending, "*" :cleared, :uncleared)])
 
      :Transaction
-       (fn [& children]
+       (fn [date & children]
          ; TODO: save substring that was parsed into this tx as a source
          [:Transaction
           (->
-            {}
+            {:date date}
             (collect
               {:title    (collect-one :TxMemo)
-               :date     (collect-one :TxDate)
                :time     (collect-one :TimeMeta)
                :status   (collect-one :tx/status)
                :meta     (collect-map :tx/meta)

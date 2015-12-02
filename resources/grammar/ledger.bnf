@@ -50,7 +50,7 @@ BalancedVirtualAccountRef = <'['> , AccountRef , <']'> ;
 
 (* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
-CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock , !Transaction ;
+CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
 IncludeFile = <'include '> , #"\S+" , NL ;
 
 (* Account Definitions *)
@@ -72,20 +72,19 @@ CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* Transactions *)
-Transaction = TxSource* ,
-              TxDate ,
+Transaction = Date ,
               [ <' '> , TxStatus ] ,
               <' '> , !TxStatus , TxMemo , NL ,
               TxDetail* ,
               Posting+ ;
 
-TxDate = Date ;
-TxSource = <'; '> , AccountAlias , <'|'> , Text , NL ;
 TxStatus = '!' | '*' ;
 TxMemo = Text ;
-<TxDetail> = Indent , <'; '> , ( TimeMeta | TxMeta | TxComment ) , NL ;
-TxMeta = !TimeMetaTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-TxComment = !TimeMetaTag , !TxMeta , Text ;
+<TxDetail> = Indent , <'; '> , ( TimeMeta | TxSource | TxMeta | TxComment ) , NL ;
+TxSourceTag = 'source: ' ;
+TxSource = <TxSourceTag> , AccountAlias , <'|'> , Text ;
+TxMeta = !TimeMetaTag , !TxSourceTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+TxComment = !TimeMetaTag , !TxSourceTag , !TxMeta , Text ;
 
 (* Postings *)
 Posting = Indent ,
