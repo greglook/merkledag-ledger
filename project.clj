@@ -7,14 +7,18 @@
   :deploy-branches ["master"]
 
   :dependencies
-  [[instaparse "1.4.1"]
+  [[clj-time "0.11.0"]
+   [instaparse "1.4.1"]
    [mvxcvi/blocks "0.5.0"]
    [mvxcvi/merkledag-repo "0.1.0"] ; TODO: change to mvxcvi/merkledag
    [mvxcvi/puget "1.0.0"]
    [org.clojure/clojure "1.7.0"]]
 
   :whidbey
-  {:tag-types {'blocks.data.Block {'blocks.data.Block (partial into {})}
+  {:tag-types {'org.joda.time.DateTime {'inst str}
+               'org.joda.time.LocalDate {'time/date str}
+               'org.joda.time.Interval {'time/interval #(vector (clj-time.core/start %) (clj-time.core/end %))}
+               'blocks.data.Block {'blocks.data.Block (partial into {})}
                'merkledag.link.MerkleLink {'data/link (juxt :name :target :tsize)}
                'multihash.core.Multihash {'data/hash 'multihash.core/base58}}}
 
