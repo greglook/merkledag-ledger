@@ -31,6 +31,12 @@
       (format "%.3f ms" elapsed)))
 
 
+(defn get-group
+  "Get a line group out of a file for testing."
+  [file index]
+  (-> file io/file io/reader line-seq finance/group-lines (nth index)))
+
+
 (defn try-parsing
   "Attempts to parse the given text using the current parser. Returns true if
   the text parsed successfully, false on error."
@@ -95,8 +101,10 @@
       (cond
         ; Hit error limit
         (>= errors error-limit)
-          (printf "\nStopping after %d errors at entry %d in %s\n"
-                  error-limit index (human-duration (get-elapsed)))
+          (let [total (+ index (count entries))]
+            (printf "\nStopping after %d errors at entry %d/%d (%.1f%%) in %s\n"
+                    error-limit index total (* (/ index total) 100.0)
+                    (human-duration (get-elapsed))))
 
         ; Parse next entry
         (seq entries)
