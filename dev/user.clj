@@ -88,6 +88,17 @@
        false))))
 
 
+(defn inspect-file
+  "Inspects the parsing of a group in the given file. If no index is given, one
+  is selected at random."
+  ([file]
+   (inspect-file file nil))
+  ([file index]
+   (let [groups (-> file io/file io/reader line-seq finance/group-lines)
+         index (or index (rand-int (count groups)))]
+     (try-parsing (nth groups index) index true))))
+
+
 (defn test-parser
   "Tests the parser by running it against the line groups in the given file.
   Any extra arguments will explicitly print out the results of parsing the
