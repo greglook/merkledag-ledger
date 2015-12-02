@@ -21,6 +21,12 @@
 
 (* Dates *)
 Date = #"\d{4}-\d\d-\d\d" ;
+Time = ( #"\d\d:\d\d" | #"\d\d:\d\d:\d\d" ) , [ <[' ']> , TimeZone ] ;
+TimeZone = 'Z' | #"-?\d\d:\d\d" | #"[A-Z][a-zA-Z]+(/[a-zA-Z0-9_-]+)*" ;
+DateTime = Date , <'T'> , Time ;
+
+TimeMetaTag = 'time: ' ;
+TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 
 (* Numbers *)
 <NonZeroDigit> = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
@@ -61,19 +67,26 @@ CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* Transactions *)
-Transaction = TxSource* , Date , [ <' '> , TxStatus ] , <' '> , !TxStatus , TxMemo , NL , TxDetail* , Posting+ ;
+Transaction = TxSource* ,
+              TxDate ,
+              [ <' '> , TxStatus ] ,
+              <' '> , !TxStatus , TxMemo , NL ,
+              TxDetail* ,
+              Posting+ ;
+
+TxDate = Date ;
 TxSource = <'; '> , AccountAlias , <'|'> , Text , NL ;
 TxStatus = '!' | '*' ;
 TxMemo = Text ;
-<TxDetail> = Indent , <'; '> , ( TxMeta | TxComment ) , NL ;
-TxMeta = TagName , <': '> , Text | <':'> , TagName , <':'> ;
-TxComment = !TxMeta , Text ;
+<TxDetail> = Indent , <'; '> , ( TimeMeta | TxMeta | TxComment ) , NL ;
+TxMeta = !TimeMetaTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+TxComment = !TimeMetaTag , !TxMeta , Text ;
 
 (* Postings *)
 Posting = Indent ,
           PostingAccount ,
           [ <'  '> ,
-            [ <' '*> , PostingAmount ,
+            [ <' '*> , Quantity ,
               [ <' '+> , PostingLotCost ,
                 [ <' '+> , PostingLotDate ] ] ,
               [ <' '+> , PostingPrice ] ] ,
@@ -86,20 +99,27 @@ Posting = Indent ,
 PostingRealAccount = AccountRef ;
 PostingSoftVirtualAccount = <'('> , AccountRef , <')'> ;
 PostingHardVirtualAccount = <'['> , AccountRef , <']'> ;
-PostingAmount = Quantity ;
 PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
 PostingPrice = <'@'> , <' '+> , Quantity ;
 PostingBalance = <'='> , <' '+> , Quantity ;
-<PostingDetail> = Indent , Indent , <'; '> , ( PostingDate | PostingMeta | LineItem | PostingComment ) , NL ;
+<PostingDetail> = Indent , Indent , <'; '> , ( TimeMeta | PostingDate | PostingMeta | LineItem | PostingComment ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
-PostingMeta = !LineItemTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-PostingComment = !LineItemTag , !PostingDate , !PostingMeta , Text ;
+PostingMeta = !TimeMetaTag , !LineItemTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+PostingComment = !TimeMetaTag , !LineItemTag , !PostingDate , !PostingMeta , Text ;
 
-LineItem = <LineItemTag> , #"\S+( \S+)*" , [ <' '+> , LineItemAmount , [ <' '+> , LineItemDetail ] , [ <' '+> , LineItemTaxGroup ] ] ;
+(* Line Items *)
+LineItem = <LineItemTag> ,
+           #"\S+( \S+)*" ,
+           [ <' '+> , LineItemAmount ,
+             [ <' '+> , LineItemDetail ] ,
+             [ <' '+> ,  ( LineItemTaxGroups | LineItemTaxApplied ) ] ] ;
+
 LineItemTag = 'item: ' ;
 LineItemAmount = Quantity ;
 <LineItemDetail> = <'('> , <' '*> , LineItemQuantity , <' '+> , <'@'> , <' '+> , LineItemCost , <')'> ;
 LineItemQuantity = Number | Quantity ;
 LineItemCost = Quantity | Percentage ;
 LineItemTaxGroup = #"\*+" ;
+LineItemTaxGroups = LineItemTaxGroup , ( <' '> , LineItemTaxGroup )* ;
+LineItemTaxApplied = <'<'> , LineItemTaxGroup , <'>'> ;
