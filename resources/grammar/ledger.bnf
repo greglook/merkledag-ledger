@@ -34,18 +34,26 @@ TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | <','> )+ ) ) , [ '.' , Digit+ ] ;
 Percentage     = Number , <'%'> ;
 
+(* Financial Quantities *)
+CommodityCode = '$' | #"[a-zA-Z][a-zA-Z_]*" | <'"'> , #"[a-zA-Z][a-zA-Z0-9_]*" , <'"'> ;
+Quantity = '0' | ( CommodityCode , <[' ']> , Number ) | ( Number , <[' ']> , CommodityCode ) ;
+
+(* Account References *)
+<AccountPathWord> = #"[A-Z0-9&][a-zA-Z0-9-.]*" ;
+AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
+AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
+AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
+<AccountRef> = AccountPath | AccountAlias ;
+RealAccountRef = AccountRef ;
+VirtualAccountRef = <'('> , AccountRef , <')'> ;
+BalancedVirtualAccountRef = <'['> , AccountRef , <']'> ;
+
 (* Comments & Includes *)
 CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
 CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock , !Transaction ;
 IncludeFile = <'include '> , #"\S+" , NL ;
 
 (* Account Definitions *)
-<AccountPathWord> = #"[A-Z0-9&][a-zA-Z0-9-.]*" ;
-AccountPathSegment = AccountPathWord , ( ' ' , AccountPathWord )* ;
-AccountPath = AccountPathSegment , ( <':'> , AccountPathSegment )* ;
-AccountAlias = #"[a-z][a-zA-Z0-9-]*[a-z0-9]" ;
-<AccountRef> = AccountPath | AccountAlias ;
-
 AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
 <AccountDirective> = Indent , ( AccountAliasDirective | AccountNote | AccountAssertion ) , NL ;
 AccountAliasDirective = <'alias '> , AccountAlias ;
@@ -53,9 +61,6 @@ AccountNote = <'note '> , Text ;
 AccountAssertion = <'assert '> , Text ;
 
 (* Commodity Definitions *)
-CommodityCode = '$' | #"[a-zA-Z][a-zA-Z_]*" | <'"'> , #"[a-zA-Z][a-zA-Z0-9_]*" , <'"'> ;
-Quantity = '0' | ( CommodityCode , <[' ']> , Number ) | ( Number , <[' ']> , CommodityCode ) ;
-
 CommodityDefinition = <'commodity '> , CommodityCode , NL , CommodityDirective* ;
 <CommodityDirective> = Indent , ( CommodityNote | CommodityFormat | CommodityOption ) , NL ;
 CommodityNote = <'note '> , Text ;
@@ -95,10 +100,7 @@ Posting = Indent ,
           NL ,
           PostingDetail* ;
 
-<PostingAccount> = PostingRealAccount | PostingSoftVirtualAccount | PostingHardVirtualAccount ;
-PostingRealAccount = AccountRef ;
-PostingSoftVirtualAccount = <'('> , AccountRef , <')'> ;
-PostingHardVirtualAccount = <'['> , AccountRef , <']'> ;
+<PostingAccount> = RealAccountRef | VirtualAccountRef | BalancedVirtualAccountRef ;
 PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
 PostingPrice = <'@'> , <' '+> , Quantity ;

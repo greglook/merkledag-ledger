@@ -157,9 +157,9 @@
      :Posting
        (fn [account & [amount & children]]
          (let [posting-type (case (first account)
-                              :PostingRealAccount :real
-                              :PostingSoftVirtualAccount :soft-virtual
-                              :PostingHardVirtualAccount :hard-virtual)]
+                              :RealAccountRef :real
+                              :VirtualAccountRef :virtual
+                              :BalancedVirtualAccountRef :balanced-virtual)]
            [:tx/posting
             (->
               {:account (second account)}
