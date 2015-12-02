@@ -137,6 +137,13 @@
      :AccountPath vector
      :AccountAlias keyword
 
+     :PostingSource
+       (fn [src line]
+         [:posting/source {:source (keyword src), :line line}])
+     :PostingMeta
+      (fn ([k]   [:posting/meta (keyword k) true])
+          ([k v] [:posting/meta (keyword k) v]))
+
      :LineItemTaxGroup keyword
      :LineItemTaxGroups (fn [& groups] [:item/tax-groups (set groups)])
      :LineItem
@@ -150,9 +157,6 @@
              :tax-groups (collect-one :item/tax-groups)
              :tax-applied (collect-one :LineItemTaxApplied)}
             children)])
-
-     :PostingMeta (fn ([k]   [:posting/meta (keyword k) true])
-                      ([k v] [:posting/meta (keyword k) v]))
 
      :Posting
        (fn [account & [amount & children]]
@@ -176,6 +180,7 @@
                  :date     (collect-one :PostingDate)
                  :time     (collect-one :TimeMeta)
                  :meta     (collect-map :posting/meta)
+                 :sources  (collect-all :posting/source)
                  :items    (collect-all :posting/line-item)
                  :comments (collect-all :PostingComment)}
                 children)
@@ -191,8 +196,6 @@
 
      :TxMeta (fn ([k]   [:tx/meta (keyword k) true])
                  ([k v] [:tx/meta (keyword k) v]))
-     :TxSource (fn [src line]
-                 [:tx/source {:source src, :line line}])
      :TxStatus (fn [chr]
                  [:tx/status (case chr "!" :pending, "*" :cleared, :uncleared)])
 
@@ -207,7 +210,6 @@
                :time     (collect-one :TimeMeta)
                :status   (collect-one :tx/status)
                :meta     (collect-map :tx/meta)
-               :sources  (collect-all :tx/source)
                :comments (collect-all :TxComment)
                :postings (collect-all :tx/posting)}
               children)

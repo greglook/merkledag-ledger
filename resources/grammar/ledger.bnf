@@ -85,11 +85,9 @@ Transaction = Date ,
 
 TxStatus = '!' | '*' ;
 TxMemo = Text ;
-<TxDetail> = Indent , <'; '> , ( TimeMeta | TxSource | TxMeta | TxComment ) , NL ;
-TxSourceTag = 'source: ' ;
-TxSource = <TxSourceTag> , AccountAlias , <'|'> , Text ;
-TxMeta = !TimeMetaTag , !TxSourceTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-TxComment = !TimeMetaTag , !TxSourceTag , !TxMeta , Text ;
+<TxDetail> = Indent , <'; '> , ( TimeMeta | TxMeta | TxComment ) , NL ;
+TxMeta = !( TimeMetaTag | SourceMetaTag ) , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+TxComment = !( TimeMetaTag | SourceMetaTag | TxMeta ) , Text ;
 
 (* Postings *)
 Posting = Indent ,
@@ -109,10 +107,10 @@ PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
 PostingPrice = <'@'> , <' '+> , Quantity ;
 PostingBalance = <'='> , <' '+> , Quantity ;
-<PostingDetail> = Indent , Indent , <'; '> , ( TimeMeta | PostingDate | PostingMeta | LineItem | PostingComment ) , NL ;
+<PostingDetail> = Indent , Indent , <'; '> , ( TimeMeta | SourceMeta | PostingDate | PostingMeta | PostingComment | LineItem ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
-PostingMeta = !TimeMetaTag , !LineItemTag , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-PostingComment = !TimeMetaTag , !LineItemTag , !PostingDate , !PostingMeta , Text ;
+PostingMeta = !( TimeMetaTag | SourceMetaTag | LineItemTag ) , TagName , <': '> , Text | <':'> , TagName , <':'> ;
+PostingComment = !( TimeMetaTag | SourceMetaTag | LineItemTag | PostingDate | PostingMeta ) , Text ;
 
 (* Line Items *)
 LineItem = <LineItemTag> ,
