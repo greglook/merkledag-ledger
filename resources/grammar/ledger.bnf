@@ -68,7 +68,7 @@ CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* Standard Metadata *)
-<TagName> = #"[a-zA-Z0-9-]+" ;
+TagName = #"[a-zA-Z0-9-]+" ;
 
 TimeMetaTag = 'time: ' ;
 TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
@@ -76,18 +76,24 @@ TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 SourceMetaTag = 'source: ' ;
 SourceMeta = <SourceMetaTag> , TagName , <'|'> , Text ;
 
+LineItemTag = 'item: ' ;
+
+SpecialMetaTag = TimeMetaTag | SourceMetaTag | LineItemTag ;
+MetaEntry = !SpecialMetaTag , ( <':'> , TagName , <':'> | TagName , <': '> , Text ) ;
+MetaComment = !( SpecialMetaTag | MetaEntry ) , Text ;
+
 (* Transactions *)
 Transaction = Date ,
               [ <' '> , TxStatus ] ,
-              <' '> , !TxStatus , TxMemo , NL ,
+              [ <' '> , TxCode ] ,
+              <' '> , !TxStatus , !TxCode , TxMemo , NL ,
               TxDetail* ,
               Posting+ ;
 
 TxStatus = '!' | '*' ;
+TxCode = <'('> , #"[^)]+" , <')'> ;
 TxMemo = Text ;
-<TxDetail> = Indent , <'; '> , ( TimeMeta | TxMeta | TxComment ) , NL ;
-TxMeta = !( TimeMetaTag | SourceMetaTag ) , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-TxComment = !( TimeMetaTag | SourceMetaTag | TxMeta ) , Text ;
+<TxDetail> = Indent , <'; '> , ( TimeMeta | MetaEntry | MetaComment ) , NL ;
 
 (* Postings *)
 Posting = Indent ,
@@ -98,7 +104,7 @@ Posting = Indent ,
                 [ <' '+> , PostingLotDate ] ] ,
               [ <' '+> , PostingPrice ] ] ,
             [ <' '*> , PostingBalance ] ,
-            [ <' '*> , <'  ; '> , ( PostingMeta | PostingComment ) ] ] ,
+            [ <' '*> , <'  ; '> , ( MetaEntry | MetaComment ) ] ] ,
           NL ,
           PostingDetail* ;
 
@@ -107,10 +113,9 @@ PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
 PostingPrice = <'@'> , <' '+> , Quantity ;
 PostingBalance = <'='> , <' '+> , Quantity ;
-<PostingDetail> = Indent , Indent , <'; '> , ( TimeMeta | SourceMeta | PostingDate | PostingMeta | PostingComment | LineItem ) , NL ;
 PostingDate = <'['> , <['=']> , Date , <']'> ;
-PostingMeta = !( TimeMetaTag | SourceMetaTag | LineItemTag ) , TagName , <': '> , Text | <':'> , TagName , <':'> ;
-PostingComment = !( TimeMetaTag | SourceMetaTag | LineItemTag | PostingDate | PostingMeta ) , Text ;
+<PostingDetail> = Indent , Indent , <'; '> , ( TimeMeta | SourceMeta | PostingDate | LineItem | MetaEntry | !PostingDate , MetaComment ) , NL ;
+PostingComment = !PostingDate , Text ;
 
 (* Line Items *)
 LineItem = <LineItemTag> ,
@@ -119,7 +124,6 @@ LineItem = <LineItemTag> ,
              [ <' '+> , LineItemDetail ] ,
              [ <' '+> ,  ( LineItemTaxGroups | LineItemTaxApplied ) ] ] ;
 
-LineItemTag = 'item: ' ;
 LineItemAmount = Quantity ;
 <LineItemDetail> = <'('> , <' '*> , LineItemQuantity , <' '+> , <'@'> , <' '+> , LineItemCost , <')'> ;
 LineItemQuantity = Number | Quantity ;

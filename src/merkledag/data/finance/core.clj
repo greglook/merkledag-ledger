@@ -110,8 +110,7 @@
 (defn interpret-parse
   [tree]
   (parse/transform
-    {:Number (fn [& digits] [:number (BigDecimal. (str/join digits))])
-     :Percentage (fn [number] [:% (/ (second number) 100)])
+    {; Dates
      :Date ftime/parse-local-date
      :DateTime (fn [date [_ time tz]]
                  (parse-time date time tz))
@@ -120,9 +119,14 @@
                    "Z" time/utc
                    (time/time-zone-for-id zone)))
 
+     ; Numbers
+     :Number (fn [& digits] [:Number (BigDecimal. (str/join digits))])
+     :Percentage (fn [number] [:% (/ (second number) 100)])
+
+     ; Financial Quantities
      :CommodityCode
        (fn [code]
-         [:commodity-code
+         [:CommodityCode
           (if (= "$" code) 'USD (symbol code))])
 
      :Quantity
@@ -130,41 +134,58 @@
          (when (not= '("0") children)
            (let [cfg (into {} children)]
              (tagged-literal 'finance/$
-                             [(:number cfg)
-                              (:commodity-code cfg)]))))
+                             [(:Number cfg)
+                              (:CommodityCode cfg)]))))
 
-     :AccountPathSegment (fn [& words] (str/join words))
+     ; Account References
+     :AccountPathSegment #(str/join %&) #_(fn [& words] (str/join words))
      :AccountPath vector
      :AccountAlias keyword
 
-     :PostingSource
+     ; TODO: Account Definitions
+     ; TODO: Commodity Definitions
+     ; TODO: Commodity Conversions and Prices
+
+     ; Standard Metadata
+     :TagName keyword
+     :MetaEntry (fn ([k]   [:MetaEntry k true])
+                    ([k v] [:MetaEntry k v]))
+
+     :SourceMeta
        (fn [src line]
-         [:posting/source {:source (keyword src), :line line}])
-     :PostingMeta
-      (fn ([k]   [:posting/meta (keyword k) true])
-          ([k v] [:posting/meta (keyword k) v]))
+         [:SourceMeta {:source src, :line line}])
 
-     :LineItemTaxGroup keyword
-     :LineItemTaxGroups (fn [& groups] [:item/tax-groups (set groups)])
-     :LineItem
-       (fn [desc & children]
-         [:posting/line-item
-          (collect
-            {:title desc}
-            {:amount (collect-one :LineItemAmount)
-             :quantity (collect-one :LineItemQuantity)
-             :cost (collect-one :LineItemCost)
-             :tax-groups (collect-one :item/tax-groups)
-             :tax-applied (collect-one :LineItemTaxApplied)}
-            children)])
+     ; Transactions
+     :TxStatus (fn [chr]
+                 [:TxStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
 
+     :Transaction
+       (fn [date & children]
+         [:Transaction
+          (->
+            {:date date}
+            (collect
+              {:title    (collect-one :TxMemo)
+               :status   (collect-one :TxStatus)
+               :code     (collect-one :TxCode)
+               :time     (collect-one :TimeMeta)
+               :meta     (collect-map :MetaEntry)
+               :comments (collect-all :MetaComment)
+               :postings (collect-all :Posting)}
+              children)
+            (update-time))])
+
+     ; Postings
      :Posting
-       (fn [account & [amount & children]]
+       (fn [account & children]
          (let [posting-type (case (first account)
                               :RealAccountRef :real
                               :VirtualAccountRef :virtual
-                              :BalancedVirtualAccountRef :balanced-virtual)]
-           [:tx/posting
+                              :BalancedVirtualAccountRef :balanced-virtual)
+               [amount children] (if (vector? (first children))
+                                   [nil children]
+                                   [(first children) (rest children)])]
+           [:Posting
             (->
               {:account (second account)}
               (cond->
@@ -179,10 +200,10 @@
                  :balance  (collect-one :PostingBalance)
                  :date     (collect-one :PostingDate)
                  :time     (collect-one :TimeMeta)
-                 :meta     (collect-map :posting/meta)
-                 :sources  (collect-all :posting/source)
-                 :items    (collect-all :posting/line-item)
-                 :comments (collect-all :PostingComment)}
+                 :sources  (collect-all :SourceMeta)
+                 :meta     (collect-map :MetaEntry)
+                 :comments (collect-all :MetaComment)
+                 :items    (collect-all :LineItem)}
                 children)
               (update-time)
               (as-> posting
@@ -194,26 +215,20 @@
                     (-> (assoc :type :balance-check)
                         (dissoc :amount)))))]))
 
-     :TxMeta (fn ([k]   [:tx/meta (keyword k) true])
-                 ([k v] [:tx/meta (keyword k) v]))
-     :TxStatus (fn [chr]
-                 [:tx/status (case chr "!" :pending, "*" :cleared, :uncleared)])
-
-     :Transaction
-       (fn [date & children]
-         ; TODO: save substring that was parsed into this tx as a source
-         [:Transaction
-          (->
-            {:date date}
-            (collect
-              {:title    (collect-one :TxMemo)
-               :time     (collect-one :TimeMeta)
-               :status   (collect-one :tx/status)
-               :meta     (collect-map :tx/meta)
-               :comments (collect-all :TxComment)
-               :postings (collect-all :tx/posting)}
-              children)
-            (update-time))])}
+     ; Line Items
+     :LineItemTaxGroup keyword
+     :LineItemTaxGroups (fn [& groups] [:LineItemTaxGroups (set groups)])
+     :LineItem
+       (fn [desc & children]
+         [:LineItem
+          (collect
+            {:title desc}
+            {:amount      (collect-one :LineItemAmount)
+             :quantity    (collect-one :LineItemQuantity)
+             :cost        (collect-one :LineItemCost)
+             :tax-groups  (collect-one :LineItemTaxGroups)
+             :tax-applied (collect-one :LineItemTaxApplied)}
+            children)])}
     tree))
 
 
