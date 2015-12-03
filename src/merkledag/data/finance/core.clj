@@ -242,20 +242,37 @@
        (map #(str (str/join "\n" %) "\n"))))
 
 
+(defn add-source
+  "Adds a `:parse/source` key to associative values in a parsed entry."
+  [source entry]
+  (if (associative? (second entry))
+    (update entry 1 assoc :parse/source (apply subs source (parse/span entry)))
+    entry))
+
+
+(defn parse-group
+  "Parses a group of lines from a file."
+  [group]
+  (->> group
+       (ledger-parser)
+       (interpret-parse)
+       (map (partial add-source group))))
+
+
 (defn parse-file
+  "Parse a single file, updating the given data structure."
   [data file]
-  (->> (io/file file)
+  (->> file
+       (io/file)
        (io/reader)
        (line-seq)
        (group-lines)
-       (mapcat (comp interpret-parse ledger-parser))))
+       (mapcat parse-group)))
 
 
 (defn parse-files
-  [& files]
-  (loop [fs (seq files)
-         data {}]
-    (if-let [f (first fs)]
-      (do (println "Parsing file" f)
-          (printf "  (%d lines)\n" (count (line-seq (io/reader (io/file f))))))
-      data)))
+  "Parse many ledger files to populate a new data structure."
+  ([files]
+   (parse-files {} files))
+  ([data files]
+   (reduce parse-file data files)))
