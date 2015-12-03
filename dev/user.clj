@@ -19,7 +19,13 @@
     [puget.printer :as puget]))
 
 
-; TODO: define puget print-handlers for DateTime, LocalDate, ...
+(def print-options
+  {:print-color true
+   :print-handlers
+   {java.util.UUID (puget/tagged-handler 'uuid str)
+    org.joda.time.DateTime (puget/tagged-handler 'inst str)
+    org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
+    org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))}})
 
 
 (defn human-duration
@@ -79,7 +85,7 @@
                  (puget/cprint (first parses))
                  (println)
                  (println "Interpreted:")
-                 (puget/cprint interpreted))
+                 (puget/cprint interpreted print-options))
                  true)))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
