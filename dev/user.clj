@@ -40,6 +40,14 @@
       (format "%.3f ms" elapsed)))
 
 
+(defn find-groups
+  "Searches through the groups in a file to find ones which match the given
+  pattern. Returns a sequence of indices for the matching groups."
+  [file pattern]
+  (->> file io/file io/reader line-seq finance/group-lines
+       (keep-indexed #(when (re-seq pattern %2) %1))))
+
+
 (defn get-group
   "Get a line group out of a file for testing."
   [file index]
