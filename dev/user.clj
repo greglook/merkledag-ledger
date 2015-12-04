@@ -11,11 +11,11 @@
     [clojure.stacktrace :refer [print-cause-trace]]
     [clojure.string :as str]
     [clojure.tools.namespace.repl :refer [refresh]]
-    [instaparse.core :as parse]
+    [instaparse.core :as insta]
     (merkledag
       [core :as merkle]
       [graph :as graph])
-    [merkledag.data.finance.core :as finance]
+    [merkledag.data.finance.parse :as parse]
     [puget.printer :as puget]))
 
 
@@ -44,14 +44,14 @@
   "Searches through the groups in a file to find ones which match the given
   pattern. Returns a sequence of indices for the matching groups."
   [file pattern]
-  (->> file io/file io/reader line-seq finance/group-lines
+  (->> file io/file io/reader line-seq parse/group-lines
        (keep-indexed #(when (re-seq pattern %2) %1))))
 
 
 (defn get-group
   "Get a line group out of a file for testing."
   [file index]
-  (-> file io/file io/reader line-seq finance/group-lines (nth index)))
+  (-> file io/file io/reader line-seq parse/group-lines (nth index)))
 
 
 (defn try-parsing
@@ -65,13 +65,13 @@
      (when show?
        (printf "\nParsing entry %d:\n\n%s\n" index text))
      ; Try parsing the text
-     (let [parses (parse/parses finance/ledger-parser text)]
+     (let [parses (insta/parses parse/ledger-parser text)]
        (cond
          ; On failure, print out input and error message
-         (parse/failure? parses)
+         (insta/failure? parses)
            (do (printf "\nParsing entry %d failed:\n\n" index)
                (when-not show? (println text ""))
-               (puget/cprint (parse/get-failure parses))
+               (puget/cprint (insta/get-failure parses))
                false)
 
          ; If parsing is ambiguous, print first two and diff
@@ -86,7 +86,7 @@
 
            ; Try interpreting the parse
            :else
-             (let [interpreted (finance/interpret-parse (first parses))]
+             (let [interpreted (parse/interpret-parse (first parses))]
                ; If showing, explicitly print conversion:
                (when show?
                  (println "Parsed:")
@@ -108,7 +108,7 @@
   ([file]
    (inspect-file file nil))
   ([file index]
-   (let [groups (-> file io/file io/reader line-seq finance/group-lines)
+   (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))]
      (try-parsing (nth groups index) index true))))
 
@@ -118,7 +118,7 @@
   Any extra arguments will explicitly print out the results of parsing the
   groups at those indices."
   [file & show-entries]
-  (let [groups (-> file io/file io/reader line-seq finance/group-lines)
+  (let [groups (-> file io/file io/reader line-seq parse/group-lines)
         show-entries (set show-entries)
         error-limit 5
         start (System/nanoTime)
@@ -149,5 +149,5 @@
 (defn reload-grammar!
   "Recreate the Ledger parser by loading the grammar file."
   []
-  (alter-var-root #'finance/ledger-parser (constantly (parse/parser (io/resource "grammar/ledger.bnf"))))
+  (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
   :reloaded)
