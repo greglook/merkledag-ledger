@@ -307,8 +307,8 @@
 
 
 (defn parse-file
-  "Parse a single file, updating the given data structure."
-  [data file]
+  "Parse a single file, returning a sequence of ledger entries."
+  [file]
   (->> file
        (io/file)
        (io/reader)
