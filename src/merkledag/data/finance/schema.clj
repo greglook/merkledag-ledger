@@ -1,7 +1,22 @@
 (ns merkledag.data.finance.schema
   "..."
   (:require
-    [schema.core :as s]))
+    [schema.core :as s])
+  (:import
+    merkledag.link.MerkleLink
+    (org.joda.time
+      DateTime)))
+
+
+(defrecord Quantity
+  [number commodity])
+
+
+; TODO: define recursive link schema
+(defn link-to
+  [schema]
+  MerkleLink)
+
 
 
 ;; ## Asset Classes
@@ -118,7 +133,7 @@
 
 
 (def CommodityDefinition
-  {:type :finance/commodity
+  {:data/type :finance/commodity
    :title s/Str
    :finance.commodity/code
      CommodityCode
@@ -149,7 +164,11 @@
 ;; - price*      unit value of the primary commodity in the base units
 ;; - source      string describing the source of the data
 
-; ...
+(def PriceEntry
+  {:data/type :finance/price
+   :time/at DateTime
+   :finance.price/commodity CommodityCode
+   :finance.price/value Quantity})
 
 
 
@@ -182,7 +201,34 @@
 ;; - interest-rate   APR paid/charged, if any
 ;; - children        set of links to child accounts
 
-; ...
+(def AccountType
+  (s/constrained s/Keyword #(= "finance.account.type" (namespace %)))
+  (s/enum :finance.account.type/checking
+          :finance.account.type/savings
+          :finance.account.type/brokerage
+          :finance.account.type/traditional-ira
+          :finance.account.type/roth-ira
+          :finance.account.type/401k
+          :finance.account.type/bitcoin))
+
+
+(def AccountRoot
+  {:data/type :finance/account-root
+   :time/at DateTime
+   :title s/Str
+   (s/optional-key :description) s/Str})
+
+
+(def AccountDefinition
+  {:data/type :finance/account
+   :title s/Str
+   (s/optional-key :description) s/Str
+   :finance.account/id (link-to AccountRoot)
+   (s/optional-key :finance.account/type) AccountType
+   (s/optional-key :finance.account/institution) (link-to s/Any)
+   (s/optional-key :finance.account/external-id) s/Str
+   (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
+   (s/optional-key :finance.account/interest-rate) s/Number})
 
 
 
