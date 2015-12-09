@@ -319,4 +319,19 @@
 ;; - entries   Set of entries grouped into this transaction.
 ;; - state     Whether the transaction has cleared or is still pending.
 
-; ...
+(def Transaction
+  "Schema for an object representing a financial transaction."
+  {:data/type (s/eq :finance/transaction)
+   :time/at DateTime
+   :title s/Str
+   (s/optional-key :description) s/Str
+   (s/optional-key :finance.transaction/id) s/Str
+   (s/optional-key :finance.transaction/status)
+     (s/enum :finance.transaction.status/uncleared
+             :finance.transaction.status/pending
+             :finance.transaction.status/cleared)
+   (s/optional-key :finance.transaction/code) s/Str
+   :finance.transaction/entries [(link-to Posting)]}
+  ; TODO: validations
+  ; - real posting weights must sum to zero
+  )
