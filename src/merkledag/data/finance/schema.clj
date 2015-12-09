@@ -1,18 +1,15 @@
 (ns merkledag.data.finance.schema
   "..."
   (:require
+    [merkledag.data.finance.quantity]
     [merkledag.link :as link]
     [schema.core :as s])
   (:import
+    merkledag.data.finance.quantity.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
       DateTime
       LocalDate)))
-
-
-; TODO: move this somewhere else
-(defrecord Quantity
-  [value commodity])
 
 
 (defn link-to
