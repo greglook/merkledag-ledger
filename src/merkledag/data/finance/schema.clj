@@ -1,6 +1,7 @@
 (ns merkledag.data.finance.schema
   "..."
   (:require
+    [merkledag.link :as link]
     [schema.core :as s])
   (:import
     merkledag.link.MerkleLink
@@ -8,75 +9,58 @@
       DateTime)))
 
 
+; TODO: move this somewhere else
 (defrecord Quantity
-  [number commodity])
+  [value commodity])
 
 
-; TODO: define recursive link schema
 (defn link-to
+  "Schema for a merkle link to an object which must objey the given schema.
+  Currently, the linked object is **NOT** recursively checked."
   [schema]
+  ; TODO: implement recursive link schema
   MerkleLink)
+
+
+(defn- constrained-keyword
+  "Schema for a keyword with a mandatory namespace component."
+  [ns]
+  (s/constrained s/Keyword #(= ns (namespace %))))
 
 
 
 ;; ## Asset Classes
 
 (def asset-classes
-  "Set of standard asset classes."
-  #{{:data/ident :finance.commodity.asset-class/cash
-     :title "Cash"
-     :description "Cash and other cash-equivalent securities."}
-    {:data/ident :finance.commodity.asset-class/intl-government-bond
-     :title "International Government Bonds"}
-    {:data/ident :finance.commodity.asset-class/intl-corporate-bond
-     :title "International Corporate Bonds"}
-    {:data/ident :finance.commodity.asset-class/us-government-bond
-     :title "US Government Bonds"}
-    {:data/ident :finance.commodity.asset-class/us-corporate-bond
-     :title "US Corporate Bonds"}
-    {:data/ident :finance.commodity.asset-class/us-municipal-bond
-     :title "US Municipal Bonds"}
-    {:data/ident :finance.commodity.asset-class/intl-developed-stock
-     :title "International Developed Stock"}
-    {:data/ident :finance.commodity.asset-class/intl-emerging-stock
-     :title "International Emerging Stock"}
-    {:data/ident :finance.commodity.asset-class/us-large-cap-value
-     :title "US Large Cap Value Stock"}
-    {:data/ident :finance.commodity.asset-class/us-large-cap-core
-     :title "US Large Cap Core Stock"}
-    {:data/ident :finance.commodity.asset-class/us-large-cap-growth
-     :title "US Large Cap Growth Stock"}
-    {:data/ident :finance.commodity.asset-class/us-mid-cap-value
-     :title "US Mid Cap Value Stock"}
-    {:data/ident :finance.commodity.asset-class/us-mid-cap-core
-     :title "US Mid Cap Core Stock"}
-    {:data/ident :finance.commodity.asset-class/us-mid-cap-growth
-     :title "US Mid Cap Growth Stock"}
-    {:data/ident :finance.commodity.asset-class/us-small-cap-value
-     :title "US Small Cap Value Stock"}
-    {:data/ident :finance.commodity.asset-class/us-small-cap-core
-     :title "US Small Cap Core Stock"}
-    {:data/ident :finance.commodity.asset-class/us-small-cap-growth
-     :title "US Small Cap Growth Stock"}
-    {:data/ident :finance.commodity.asset-class/currency
-     :title "Currencies"
-     :description "Alternative currencies held speculatively."}
-    {:data/ident :finance.commodity.asset-class/real-estate
-     :title "Real Estate"
-     :description "Direct real-estate investments or diversified REITs."}
-    {:data/ident :finance.commodity.asset-class/gold
-     :title "Gold"}
-    {:data/ident :finance.commodity.asset-class/commodities
-     :title "Commodities"}
-    {:data/ident :finance.commodity.asset-class/other
-     :title "Other Assets"
-     :description "Catch-all for unclassified assets."}})
+  "Set of names for some common asset classes."
+  #{:cash
+    :intl-government-bond
+    :intl-corporate-bond
+    :us-government-bond
+    :us-corporate-bond
+    :us-municipal-bond
+    :intl-developed-stock
+    :intl-emerging-stock
+    :us-large-cap-value
+    :us-large-cap-core
+    :us-large-cap-growth
+    :us-mid-cap-value
+    :us-mid-cap-core
+    :us-mid-cap-growth
+    :us-small-cap-value
+    :us-small-cap-core
+    :us-small-cap-growth
+    :currency
+    :real-estate
+    :gold
+    :commodities
+    :other})
 
 
 (def AssetClassKey
-  "Enumeration of keywords identifying an asset class."
+  "Schema for a keyword identifying an asset class."
   (s/named
-    (apply s/enum (map :data/ident asset-classes))
+    (constrained-keyword "finance.commodity.asset-class")
     "asset-class"))
 
 
@@ -93,19 +77,23 @@
 
 ;; ## Commodity Sector
 
+(def commodity-sectors
+  "Set of names for some common commodity sectors."
+  #{:basic-materials
+    :communication-services
+    :consumer-cyclical
+    :consumer-defensive
+    :energy
+    :financial-services
+    :healthcare
+    :industrials
+    :technology
+    :utilities})
+
+
 (def CommoditySectorKey
-  "Enumeration of keywords identifying a commodity sector."
-  (s/enum
-    :finance.commodity.sector/basic-materials
-    :finance.commodity.sector/communication-services
-    :finance.commodity.sector/consumer-cyclical
-    :finance.commodity.sector/consumer-defensive
-    :finance.commodity.sector/energy
-    :finance.commodity.sector/financial-services
-    :finance.commodity.sector/healthcare
-    :finance.commodity.sector/industrials
-    :finance.commodity.sector/technology
-    :finance.commodity.sector/utilities))
+  "Schema for a keyword identifying a commodity sector."
+  (constrained-keyword "finance.commodity.sector"))
 
 
 (def CommoditySectorBreakdown
@@ -123,30 +111,27 @@
 
 ;; A commodity is defined by a symbolic code, a name, and a type. It may also
 ;; have a character symbol and a format example.
-;;
-;; Commodity definitions are stored under `/commodities`, which should be a
-;; link table from code symbols to definitions. Thus, the definition of US
-;; dollars could be found at `/commodities/USD`.
 
 (def CommodityCode
+  "Schema for a symbol identifying a commodity."
   (s/constrained s/Symbol #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %))))
 
 
 (def CommodityDefinition
-  {:data/type :finance/commodity
+  "Schema for a commodity definition directive."
+  {:data/type (s/eq :finance/commodity)
    :title s/Str
    :finance.commodity/code
      CommodityCode
    (s/optional-key :finance.commodity/currency-symbol)
-     (s/constrained s/String #(= 1 (count %)))
+     (s/constrained s/Str #(= 1 (count %)))
+   ; TODO: format?
    (s/optional-key :finance.commodity/asset-class)
      (s/conditional map? AssetClassBreakdown
                     :else AssetClassKey)
    (s/optional-key :finance.commodity/sector)
      (s/conditional map? CommoditySectorBreakdown
-                    :else CommoditySectorKey)
-   ; TODO: format?
-   })
+                    :else CommoditySectorKey)})
 
 
 
@@ -156,19 +141,13 @@
 ;; particular, currencies fluctuate and the values of investments grow and
 ;; shrink. The conversion rate between two commodities determines the primary
 ;; commodity's _price_ in the second (or 'base') commodity.
-;;
-;; These are stored in a 'price-list' structure, which is a sequence of
-;; maps containing the following keys:
-;; - at*         time the price point was observed
-;; - commodity*  the primary commodity being priced
-;; - price*      unit value of the primary commodity in the base units
-;; - source      string describing the source of the data
 
 (def PriceEntry
-  {:data/type :finance/price
+  {:data/type (s/eq :finance/price)
    :time/at DateTime
    :finance.price/commodity CommodityCode
-   :finance.price/value Quantity})
+   :finance.price/value Quantity
+   (s/optional-key :data/source) #{(link-to s/Any)}})
 
 
 
@@ -185,50 +164,53 @@
 ;;   in the subtree.
 ;;
 ;; To this end, accounts are given a stable identifier by creating an
-;; `open-account` structure and linking all postings and metadata to it. The
-;; opening data should include enough unique information to identify the
+;; `account-root` structure and linking all postings and metadata to it. The
+;; root data should include enough unique information to identify the
 ;; represented account.
 ;;
 ;; The accounts are organized into a tree from a top-level root of `/accounts`.
 ;; Each account gives its segment name (via `:title`) and links to any child
 ;; accounts.
-;;
-;; - id              link to the opening event (for accounts with a journal)
-;; - type*           type of account, e.g. :group, :checking, :savings, :brokerage, etc.
-;; - institution     reference to the entity the account is with, if any
-;; - external-id     external account identifier string
-;; - commodities     set of commodity codes allowed in the account, if restricted
-;; - interest-rate   APR paid/charged, if any
-;; - children        set of links to child accounts
 
-(def AccountType
-  (s/constrained s/Keyword #(= "finance.account.type" (namespace %)))
-  (s/enum :finance.account.type/checking
-          :finance.account.type/savings
-          :finance.account.type/brokerage
-          :finance.account.type/traditional-ira
-          :finance.account.type/roth-ira
-          :finance.account.type/401k
-          :finance.account.type/bitcoin))
+(def account-types
+  "Set of names for some common account types."
+  #{:cash
+    :checking
+    :savings
+    :certificate-of-deposit
+    :brokerage
+    :traditional-401k
+    :roth-401k
+    :traditional-ira
+    :roth-ira
+    :bitcoin})
+
+
+(def AccountTypeKey
+  "Schema for a keyword identifying an account type."
+  (constrained-keyword "finance.account.type"))
 
 
 (def AccountRoot
-  {:data/type :finance/account-root
-   :time/at DateTime
+  "Schema for an object identifying the root of an account."
+  {:data/type (s/eq :finance/account-root)
    :title s/Str
-   (s/optional-key :description) s/Str})
+   (s/optional-key :description) s/Str
+   (s/optional-key :time/at) DateTime})
 
 
 (def AccountDefinition
-  {:data/type :finance/account
+  "Schema for an object defining the properties of an account."
+  {:data/type (s/eq :finance/account)
    :title s/Str
    (s/optional-key :description) s/Str
    :finance.account/id (link-to AccountRoot)
-   (s/optional-key :finance.account/type) AccountType
+   (s/optional-key :finance.account/type) AccountTypeKey
    (s/optional-key :finance.account/institution) (link-to s/Any)
    (s/optional-key :finance.account/external-id) s/Str
    (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
-   (s/optional-key :finance.account/interest-rate) s/Number})
+   (s/optional-key :finance.account/interest-rate) s/Num
+   (s/optional-key :finance.account/children) #{(link-to AccountDefinition)}})
 
 
 
