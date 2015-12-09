@@ -254,9 +254,9 @@
        [:LineItem
         (collect
           {:title desc}
-          {:amount      (collect-one :LineItemAmount)
-           :quantity    (collect-one :LineItemQuantity)
-           :cost        (collect-one :LineItemCost)
+          {:total       (collect-one :LineItemTotal)
+           :amount      (collect-one :LineItemAmount)
+           :price       (collect-one :LineItemPrice)
            :tax-groups  (collect-one :LineItemTaxGroups)
            :tax-applied (collect-one :LineItemTaxApplied)}
           children)])})

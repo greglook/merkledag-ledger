@@ -120,14 +120,14 @@ PostingComment = !PostingDate , Text ;
 (* Line Items *)
 LineItem = <LineItemTag> ,
            #"\S+( \S+)*" ,
-           [ <' '+> , LineItemAmount ,
+           [ <' '+> , LineItemTotal ,
              [ <' '+> , LineItemDetail ] ,
              [ <' '+> ,  ( LineItemTaxGroups | LineItemTaxApplied ) ] ] ;
 
-LineItemAmount = Quantity ;
-<LineItemDetail> = <'('> , <' '*> , LineItemQuantity , <' '+> , <'@'> , <' '+> , LineItemCost , <')'> ;
-LineItemQuantity = Number | Quantity ;
-LineItemCost = Quantity | Percentage ;
+LineItemTotal = Quantity ;
+<LineItemDetail> = <'('> , <' '*> , LineItemAmount , <' '+> , <'@'> , <' '+> , LineItemPrice , <')'> ;
+LineItemAmount = Number | Quantity ;
+LineItemPrice = Quantity | Percentage ;
 LineItemTaxGroup = #"\*+" ;
 LineItemTaxGroups = LineItemTaxGroup , ( <' '> , LineItemTaxGroup )* ;
 LineItemTaxApplied = <'<'> , LineItemTaxGroup , <'>'> ;
