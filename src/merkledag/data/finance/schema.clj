@@ -6,7 +6,8 @@
   (:import
     merkledag.link.MerkleLink
     (org.joda.time
-      DateTime)))
+      DateTime
+      LocalDate)))
 
 
 ; TODO: move this somewhere else
@@ -220,9 +221,9 @@
 ;; A common example is a line on a receipt, showing the purchase of an item.
 ;;
 ;; Typically, the _amount_ will be a bare number or a physical quantity. The
-;; _price_ is the unit price of the item, as a financial quantity. The _total_
-;; multiplies the two and takes the commodity specified in the price. This is
-;; rendered like:
+;; _price_ is the unit price of the item, as a financial quantity. The item
+;; _total_ multiplies the two and takes the commodity specified in the price.
+;; This is rendered like:
 ;;
 ;;     $20.18 (2.0 lb @ $10.09)
 ;;
@@ -232,7 +233,33 @@
 ;;
 ;;     $12.22 ($127.29 @ 9.6%)
 
-; ...
+(def LineItem
+  "Schema for a line-item in an invoice."
+  {:data/type (s/eq :finance/item)
+   :title s/Str
+   (s/optional-key :description) s/Str
+   (s/optional-key :finance.item/id) s/Str
+   (s/optional-key :finance.item/total) Quantity
+   (s/optional-key :finance.item/amount)
+     (s/conditional number? s/Num :else Quantity)
+   (s/optional-key :finance.item/price) Quantity
+   (s/optional-key :finance.item/vendor) (link-to s/Any)
+   (s/optional-key :finance.item/tax-groups) #{s/Keyword}
+   (s/optional-key :finance.item/tax-applied) s/Keyword}
+  ; TODO: validations
+  ; - amount and price only make sense if total is set
+  ; - amount and price must be set together
+  ; - total should equal amount * price (or be within tolerance)
+  )
+
+
+(def Invoice
+  "Schema for a collection of line items in an invoice."
+  {:data/type (s/eq :finance/invoice)
+   (s/optional-key :title) s/Str
+   (s/optional-key :description) s/Str
+   (s/optional-key :data/sources) #{(link-to s/Any)}
+   :finance.invoice/items [LineItem]})
 
 
 
@@ -243,23 +270,38 @@
 ;; balance checks and general notes. Postings are primarily sorted by timestamp,
 ;; but ones with the same timestamp (usually because of day-level precision) are
 ;; ordered by transaction placement in the history.
-;;
-;; - id            optional string uniquely identifying this posting so it can be
-;;                 linked to another posting
-;; - account*      Reference to the account (via the opening data) the posting
-;;                 should be applied to.
-;; - payee         Link to the entity on the other side of the posting, if any.
-;; - balances      A balance check asserts that an account has a certain balance
-;;                 of some set of commodities. If a commodity is not present in
-;;                 the balance map, it is not checked. To assert that an account
-;;                 has none of a given commodity, it should be specified with a
-;;                 value of zero.
-;; - amount        Quantity of commodity which changed.
-;; - price         A price in another commodity which the amount was exchanged for.
-;; - cost          A cost associated with the original commodity lot.
-;; - items         A list of itemized amounts that contribute to the posting.
 
-; ...
+(def Posting
+  "Schema for a financial posting to an account."
+  {:data/type (s/eq :finance/posting)
+   (s/optional-key :description) s/Str
+   :finance.posting/account (link-to AccountRoot)
+   (s/optional-key :finance.posting/id) s/Str
+   (s/optional-key :finance.posting/type)
+     (s/enum :finance.posting.type/real
+             :finance.posting.type/virtual
+             :finance.posting.type/balance-check)
+   (s/optional-key :finance.posting/payee) (link-to s/Any)
+   (s/optional-key :finance.posting/amount) Quantity
+   (s/optional-key :finance.posting/price) Quantity
+   (s/optional-key :finance.posting/lot-id) s/Str
+   (s/optional-key :finance.posting/lot-cost) Quantity
+   (s/optional-key :finance.posting/lot-date) LocalDate
+   (s/optional-key :finance.posting/weight) Quantity
+   (s/optional-key :finance.posting/balance) Quantity
+   (s/optional-key :finance.posting/invoice) (link-to Invoice)
+   (s/optional-key :time/at) DateTime
+   (s/optional-key :data/sources) #{(link-to s/Any)}}
+  ; TODO: validations
+  ; - amount and price must have different commodities
+  ; - weight only makes sense when price is specified
+  ; - weight must be in same commodity as price
+  ; - weight must be within tolerance of amount * price
+  ; - balance should match commodity in amount
+  ; - total of items in invoice must match amount
+  ; - lot-id should specify a real previous posting
+  ; - lot-cost and lot-date should match identified posting
+  )
 
 
 
