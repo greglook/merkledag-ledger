@@ -18,9 +18,13 @@
 (defn link-to
   "Schema for a merkle link to an object which must objey the given schema.
   Currently, the linked object is **NOT** recursively checked."
-  [schema]
   ; TODO: implement recursive link schema
-  MerkleLink)
+  ([schema]
+   MerkleLink)
+  ([name schema]
+   (s/constrained
+     MerkleLink
+     #(= name (:name %)))))
 
 
 (defn- constrained-keyword
@@ -335,3 +339,93 @@
   ; TODO: validations
   ; - real posting weights must sum to zero
   )
+
+
+
+;; ## System Layout
+
+;; The financial system is laid out as a tree of data from a single root. The
+;; system allows for tracking multiple independent _ledgers_ each of which has
+;; a balanced tree of accounts which obey the accounting equation.
+;;
+;; Within each ledger, a common set of accounts is used across one or more
+;; _journals_, which contain a sequence of _transactions_. Each transaction
+;; contains a balanced set of _postings_ which modify account balances.
+;;
+;; All ledgers in the system share a common set of commodity definitions and
+;; prices.
+;;
+;; This node should probably be a commit to track the history of updates.
+
+(comment
+  (def FinanceRoot
+    {:commodities (link-to "commodities" CommodityDefinitions)
+     :prices (link-to "prices" PriceData)
+     :ledgers (link-to "ledgers" LedgerData)})
+
+  (def CommodityDefinitions
+    (s/constrained
+      {CommodityCode (link-to CommodityDefinition)}
+      (partial every? (fn [[c l]] (= (str c) (:name l))))))
+
+  (def PriceData
+    (s/constrained
+      {CommodityCode (link-to PriceHistory)}
+      (partial every? (fn [[c l]] (= (str c) (:name l))))))
+
+  (def PriceHistory
+    ; TODO: table of years -> PriceEntry vectors
+    )
+
+  (def LedgerData
+    (s/constrained
+      {s/Str (link-to LedgerRoot)}
+      (partial every? (fn [[n l]] (= n (:name l))))))
+
+  (def LedgerRoot
+    (link-table
+      {"accounts" (link-table {s/Str AccountDefinition})
+       "journals" (link-table {s/Str JournalHistory})}))
+
+  (def JournalHistory
+    ; TODO: table of yyyy/mm/dd -> Transaction vectors
+    ))
+
+
+; /finances/
+;   commodities/
+;     USD -> CommodityDefinition
+;     TSLA
+;     ...
+;   prices/
+;     VFIFX/
+;       2015 -> [PriceEntry]
+;     ...
+;   ledgers/
+;     personal/
+;       accounts/
+;         assets/... -> AccountDefinition
+;         liabilities/...
+;         income/...
+;         expenses/...
+;         ...
+;       journals/
+;         general/
+;           2015/10/08/
+;             tx-01/ -> Transaction
+;               posting-01/ -> Posting
+;                 invoice/ -> Invoice
+;                   item-01 -> LineItem
+;                   item-02
+;                   item-03
+;                   ...
+;               posting-02/...
+;               ...
+;             tx-02/...
+;             ...
+;           ...
+;         ...
+;     joint/
+;       accounts/...
+;       ...
+;     ...
