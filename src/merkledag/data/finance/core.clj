@@ -104,12 +104,47 @@
 
 
 (defn get-quote
-  "Looks up the most recent price for the given commodity."
+  "Looks up the most recent price for the given commodity as of time `at`."
   ([data commodity]
    (lookup-price data commodity (time/now)))
-  ([data commodity time]
-   (let [prices (merkle/get-path (:graph data) @(:root data) "prices" commodity)]
-     '...)))
+  ([data commodity at]
+   (first (get-prices data commodity {:marker at, :time-key :time/at, :reverse true}))))
+
+
+(defn add-price!
+  "Adds a price to the given financial data. Updates the root pointer."
+  [data commodity entry]
+  (let [entry (-> (if (instance? Quantity entry)
+                    {:finance.price/value entry}
+                    entry)
+                  (assoc entry
+                    :data/type :finance/price
+                    :finance.price/commodity commodity)
+                  (as-> entry'
+                    (cond-> entry'
+                      (nil? (:time/at entry'))
+                        (assoc :time/at (time/now)))))]
+    ; TODO: assert price matches schema
+    ; new price should go into /prices/XXX/YYYY positioned in correct vector point
+    ; 1. look up /prices/ - if no link for commodity, goto 4
+    ; 2. look up ./<commodity> - if no link for entry year, goto 4
+    ; 3. look up ./<year> and get current year data
+    ; 4. use current data (or []) and insert the entry at the correct point
+    ; 5. create a new year node with updated data (keep links intact, if any)
+    ; 6. create a new commodity-prices node with an updated year link
+    ; 7. create a new price-data node with updated commodity link
+    ; 8. create a new root node with updated prices link
+    #_ (swap! (:root data)
+              (fn [root]
+                (update-in-node (merkle/get-node (:graph data) root)
+                                ["prices" commodity (time/year (:time/at entry))]
+                                (fn [price-node]
+                                  (if price-node
+                                    (merkle/node
+                                      (:links price-node)
+                                      (vec (sort-by :time/at (conj (:data price-node) entry))))
+                                    (merkle/node [entry]))))))
+    ))
 
 
 (defn validate
