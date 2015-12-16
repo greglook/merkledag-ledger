@@ -13,42 +13,6 @@
    :root (atom root)})
 
 
-(def update-node
-  "Updates the given node by substituting in the given links and potentially
-  running a function to update the body.
-
-  If the given links have names, and links with matching names exist in the
-  current node, they will be replaced with the new links. Otherwise, the links
-  will be appended "
-  ([node links]
-   (update-node node links identity))
-  ([node links f & args]
-   (let [links' (reduce (fn [ls l]
-                          (let [[before after] (split-with #(not= (:name l) (:name %)) ls)]
-                            (concat before [l] (rest after))))
-                        (:links node)
-                        links)]
-     (merkle/node links' (apply f (:data node) args)))))
-
-
-(def update-node-in
-  "Returns a sequence of nodes, the first of which is the updated root node."
-  [node path f & args]
-  (if (empty? path)
-    ; Base Case: empty path segment
-    [(apply f node args)]
-    ; Recursive Case: first path segment
-    (let [link-name (str (first path))
-          child (when node
-                  (some-> (link/resolve link-name (:links node))
-                          (deref)))]
-      (when-let [children (apply update-node-in child (rest path) f args)]
-        (cons (if node
-                (update-node node [(merkle/link link-name (first children))])
-                (merkle/node [(merkle/link link-name (first children))] nil))
-              children)))))
-
-
 (defn year-seek
   "Returns a lazy sequence of entries from the given root node.
 
@@ -134,17 +98,20 @@
     ; 6. create a new commodity-prices node with an updated year link
     ; 7. create a new price-data node with updated commodity link
     ; 8. create a new root node with updated prices link
-    #_ (swap! (:root data)
-              (fn [root]
-                (update-in-node (merkle/get-node (:graph data) root)
-                                ["prices" commodity (time/year (:time/at entry))]
-                                (fn [price-node]
-                                  (if price-node
-                                    (merkle/node
-                                      (:links price-node)
-                                      (vec (sort-by :time/at (conj (:data price-node) entry))))
-                                    (merkle/node [entry]))))))
-    ))
+    (comment
+      (graph/update-in
+        graph :finances
+        ["prices" commodity (time/year (:time/at entry))]
+        (fn [price-node]
+          (if price-node
+            (merkle/node*
+              (:format graph)
+              (:links price-node)
+              (vec (sort-by :time/at (conj (:data price-node) entry))))
+            (merkle/node*
+              (:format graph)
+              nil
+              [entry])))))))
 
 
 (defn validate
