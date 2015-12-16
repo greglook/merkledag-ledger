@@ -3,7 +3,7 @@
   (:require
     [merkledag.data.finance.quantity]
     [merkledag.link :as link]
-    [schema.core :as s])
+    [schema.core :as s :refer [defschema]])
   (:import
     merkledag.data.finance.quantity.Quantity
     merkledag.link.MerkleLink
@@ -59,21 +59,17 @@
     :other})
 
 
-(def AssetClassKey
+(defschema AssetClassKey
   "Schema for a keyword identifying an asset class."
-  (s/named
-    (constrained-keyword "finance.commodity.asset-class")
-    "asset-class"))
+  (constrained-keyword "finance.commodity.asset-class"))
 
 
-(def AssetClassBreakdown
+(defschema AssetClassBreakdown
   "Schema for a map of asset classes to proportional numbers. The values in the
   map must sum to 1."
-  (s/named
-    (s/constrained
-      {AssetClassKey s/Num}
-      #(== 1 (reduce + (vals %))))
-    "asset-class map"))
+  (s/constrained
+    {AssetClassKey s/Num}
+    #(== 1 (reduce + (vals %)))))
 
 
 
@@ -93,12 +89,12 @@
     :utilities})
 
 
-(def CommoditySectorKey
+(defschema CommoditySectorKey
   "Schema for a keyword identifying a commodity sector."
   (constrained-keyword "finance.commodity.sector"))
 
 
-(def CommoditySectorBreakdown
+(defschema CommoditySectorBreakdown
   "Schema for a map of sectors to proportional numbers. The values in the map
   must sum to 1."
   (s/named
@@ -114,12 +110,12 @@
 ;; A commodity is defined by a symbolic code, a name, and a type. It may also
 ;; have a character symbol and a format example.
 
-(def CommodityCode
+(defschema CommodityCode
   "Schema for a symbol identifying a commodity."
   (s/constrained s/Symbol #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %))))
 
 
-(def CommodityDefinition
+(defschema CommodityDefinition
   "Schema for a commodity definition directive."
   {:data/type (s/eq :finance/commodity)
    :title s/Str
@@ -144,7 +140,7 @@
 ;; shrink. The conversion rate between two commodities determines the primary
 ;; commodity's _price_ in the second (or 'base') commodity.
 
-(def PriceEntry
+(defschema PriceEntry
   {:data/type (s/eq :finance/price)
    :time/at DateTime
    :finance.price/commodity CommodityCode
@@ -188,12 +184,12 @@
     :bitcoin})
 
 
-(def AccountTypeKey
+(defschema AccountTypeKey
   "Schema for a keyword identifying an account type."
   (constrained-keyword "finance.account.type"))
 
 
-(def AccountRoot
+(defschema AccountRoot
   "Schema for an object identifying the root of an account."
   {:data/type (s/eq :finance/account-root)
    :title s/Str
@@ -201,7 +197,7 @@
    (s/optional-key :time/at) DateTime})
 
 
-(def AccountDefinition
+(defschema AccountDefinition
   "Schema for an object defining the properties of an account."
   {:data/type (s/eq :finance/account)
    :title s/Str
@@ -234,7 +230,7 @@
 ;;
 ;;     $12.22 ($127.29 @ 9.6%)
 
-(def LineItem
+(defschema LineItem
   "Schema for a line-item in an invoice."
   {:data/type (s/eq :finance/item)
    :title s/Str
@@ -254,7 +250,7 @@
   )
 
 
-(def Invoice
+(defschema Invoice
   "Schema for a collection of line items in an invoice."
   {:data/type (s/eq :finance/invoice)
    (s/optional-key :title) s/Str
@@ -272,7 +268,7 @@
 ;; but ones with the same timestamp (usually because of day-level precision) are
 ;; ordered by transaction placement in the history.
 
-(def Posting
+(defschema Posting
   "Schema for a financial posting to an account."
   {:data/type (s/eq :finance/posting)
    (s/optional-key :description) s/Str
@@ -320,7 +316,7 @@
 ;; - entries   Set of entries grouped into this transaction.
 ;; - state     Whether the transaction has cleared or is still pending.
 
-(def Transaction
+(defschema Transaction
   "Schema for an object representing a financial transaction."
   {:data/type (s/eq :finance/transaction)
    :time/at DateTime
