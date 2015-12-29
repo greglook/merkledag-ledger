@@ -1,0 +1,372 @@
+;; # Financial Data Schemas
+
+;; ## Financial Quantities
+
+;; A financial quantity represents an amount of a commodity, such as "$3.27".
+;; This is stored as an exact-decimal numeric amount and a commodity code
+;; symbol. In EDN, this is represented by a tagged-literal vector containing
+;; the amount and code.
+
+#finance/$ [-25.73M USD]
+#finance/$ [0.1M BTC]
+#finance/$ [50M TSLA]
+
+
+
+;; ## System Layout
+
+;; The financial system is laid out as a tree of data from a single root. The
+;; system allows for tracking multiple independent _ledgers_ each of which has
+;; a balanced tree of accounts which obey the accounting equation.
+;;
+;; Within each ledger, a common set of accounts is used across one or more
+;; _journals_, which contain a sequence of _transactions_. Each transaction
+;; contains a balanced set of _postings_ which modify account balances.
+;;
+;; All ledgers in the system share a common set of commodity definitions and
+;; prices.
+;;
+;; This node should probably be a commit to track the history of updates.
+
+; /finances/
+;   commodities/
+;     USD
+;     TSLA
+;     ...
+;   prices/
+;     VFIFX/
+;       2015/...
+;     ...
+;   ledgers/
+;     user/
+;       accounts/
+;         assets/...
+;         liabilities/...
+;         income/...
+;         expenses/...
+;         ...
+;       journals/
+;         general/
+;           2015/10/08/
+;             tx-01/
+;               posting-01/
+;                 invoice/
+;                   item-01
+;                   item-02
+;                   item-03
+;                   ...
+;               posting-02/...
+;               ...
+;             tx-02/...
+;             ...
+;           ...
+;         ...
+;     joint/
+;       accounts/...
+;       ...
+;     ...
+
+
+
+;; ## Commodities
+
+;; A commodity is defined by a symbolic code, a name, and a type. It may also
+;; have a character symbol and a format example.
+;;
+;; Commodity definitions are stored under `/commodities`, which should be a
+;; link table from code symbols to definitions. Thus, the definition of US
+;; dollars could be found at `/commodities/USD`.
+;;
+;; - title*       formal name of the commodity
+;; - code*        symbolic code used for the commodity (e.g., USD, BTC, AMZN, etc.)
+;; - asset-class  keyword for the commodity type: currency, stock, bond, mutual-fund, etc.
+;; - symbol       a single-character symbol for the commodity, if available
+;; - format       example amount string which specifies the formatting for the commodity
+;;
+;; TODO: method to list the asset class breakdown for funds
+
+; /finances/commodities/USD
+{:title "United States Dollar"
+ :data/type :finance/commodity
+ :finance.commodity/code USD
+ :finance.commodity/asset-class :finance.commodity.asset-class/currency
+ :finance.commodity/symbol "$"
+ :finance.commodity/format "$1,000.00"}
+
+
+; /finances/commodities/TLSA
+{:title "TESLA MOTORS INC"
+ :data/type :finance/commodity
+ :finance.commodity/code TSLA
+ :finance.commodity/asset-class :finance.commodity.asset-class/stock
+ :finance.commodity/format "1,000"}
+
+
+
+;; ## Prices
+
+;; Over time, a commodity's value may change relative to other commodities. In
+;; particular, currencies fluctuate and the values of investments grow and
+;; shrink. The conversion rate between two commodities determines the primary
+;; commodity's _price_ in the second (or 'base') commodity.
+;;
+;; These are stored in a 'price-list' structure, which is a sequence of
+;; maps containing the following keys:
+;; - at*         time the price point was observed
+;; - commodity*  the primary commodity being priced
+;; - price*      unit value of the primary commodity in the base units
+;; - source      string describing the source of the data
+
+
+; /finances/prices/VFIFX
+{:data/type :time/year-index
+ :time.tree-index/children
+ {2013 #data/link "2013"
+  2014 #data/link "2014"
+  2015 #data/link "2015"}}
+
+
+; /finances/prices/VFIFX/2015
+[{:time/at #inst "2015-01-05T03:22:24Z"
+  :finance.price/commodity VFIFX
+  :finance.price/value #finance/$ [28.42M USD]}
+ ...
+ {:time/at #inst "2015-01-05T12:10:41Z"
+  :finance.price/commodity VFIFX
+  :finance.price/value #finance/$ [29.25M USD]
+  :data/source #data/link "NASDAQ"}]
+
+
+
+;; ## Accounts
+
+;; Accounts are named containers for commodities. Accounts are structured into a
+;; hierarchy, forming a tree of accounts. The top-level accounts should be
+;; things like 'Assets', 'Liabilities', 'Income', 'Expenses', etc.
+;;
+;; GOALS:
+;; - Be able to update account information and hierarchy WITHOUT needing to
+;;   update the transaction history.
+;; - Be able to move a subtree of accounts WITHOUT needing to update the accounts
+;;   in the subtree.
+;;
+;; To this end, accounts are given a stable identifier by creating an
+;; `open-account` structure and linking all postings and metadata to it. The
+;; opening data should include enough unique information to identify the
+;; represented account.
+;;
+;; The accounts are organized into a tree from a top-level root of `/accounts`.
+;; Each account gives its segment name (via `:title`) and links to any child
+;; accounts.
+;;
+;; - id              link to the opening event (for accounts with a journal)
+;; - type*           type of account, e.g. :group, :checking, :savings, :brokerage, etc.
+;; - institution     name of the institution the account is with, if any
+;; - external-id     external account identifier string
+;; - commodities     set of commodity codes allowed in the account, if restricted
+;; - interest-rate   APR paid/charged, if any
+;; - children        set of links to child accounts
+
+
+; /finances/ledgers/user/accounts/assets/cash/charles-schwab/investor-checking/-id
+{:data/type :finance/open-account
+ :title "Charles Schwab Investor Checking 4400-14XXXXXX"
+ :description "Opened a checking account with Schwab."
+ :finance.account/institution #data/link -institution
+ :time/at #inst "2013-10-08T00:00:00Z"}
+
+
+; /finances/ledgers/user/accounts/assets/cash/charles-schwab
+{:type :finance/account
+ :title "Charles Schwab"
+ :finance.account/type :finance.account.type/group
+ :finance.account/institution #data/link -institution
+ :group/children #{#data/link investor-checking}}
+
+
+; /finances/ledgers/user/accounts/assets/cash/charles-schwab/investor-checking
+{:type :finance/account
+ :title "Investor Checking"
+ :description "High-Yield Investor Checking Account"
+ :finance.account/id #data/link -id
+ :finance.account/type :finance.account.type/checking
+ :finance.account/institution #data/link -institution
+ :finance.account/external-id "4400-14XXXXXX"
+ :finance.account/commodities #{USD}
+ :finance.account/interest-rate 0.005}
+
+
+; /finances/ledgers/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
+{:type :finance/account
+ :title "31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX"
+ :finance.account/type :finance.account.type/bitcoin
+ :finance.account/commodities #{BTC}}
+
+
+
+;; ## Transactions
+
+;; Transactions tie together multiple _postings_ into a balanced unit. The
+;; amounts within a transaction MUST sum to zero. Postings are applied in order
+;; within the transaction.
+;;
+;; Transactions are organized into a _journals_ in a time-ordered sequence.
+;; Each journal serves as a namespace for transactions, which can be combined
+;; or viewed individually.
+;;
+;; - time      Time the transaction occurred.
+;; - entries   Set of entries grouped into this transaction.
+;; - state     Whether the transaction has cleared or is still pending.
+
+; /finances/ledgers/user/journals/general
+{:type :finance/journal
+ :title "General Transactions"
+ :description "All-purpose transaction journal."
+ :finance.journal/entries [#data/link "2013"
+                           #data/link "2014"]}
+
+; /finances/ledgers/user/journals/general/2013/10/08/tx-07
+{:type :finance/transaction
+ :title "Dividend Reinvestment"
+ :description "Automatic reinvestment."
+ :time/at #inst "2013-10-08T00:00:00Z"
+ :finance.transaction/entries [#data/link posting-1
+                               #data/link posting-2
+                               #data/link balance-check]
+ :finance.transaction/state :finance.transaction.state/cleared}
+
+
+
+;; ## Postings
+
+;; An account has a _register_, which is the linear sequence of _postings_
+;; applied to it. A posting is usually an amount change, but may also contain
+;; balance checks and general notes. Postings are primarily sorted by timestamp,
+;; but ones with the same timestamp (usually because of day-level precision) are
+;; ordered by transaction placement in the history.
+;;
+;; - id            optional string uniquely identifying this posting so it can be
+;;                 linked to another posting
+;; - account*      Reference to the account (via the opening data) the posting
+;;                 should be applied to.
+;; - payee         Link to the entity on the other side of the posting, if any.
+;; - balances      A balance check asserts that an account has a certain balance
+;;                 of some set of commodities. If a commodity is not present in
+;;                 the balance map, it is not checked. To assert that an account
+;;                 has none of a given commodity, it should be specified with a
+;;                 value of zero.
+;; - amount        Quantity of commodity which changed.
+;; - price         A price in another commodity which the amount was exchanged for.
+;; - cost          A cost associated with the original commodity lot.
+;; - items         A list of itemized 
+
+
+; /finances/ledgers/user/journals/general/2013/10/08/tx-07/posting-01
+{:type :finance/posting
+ :time/at #inst "2013-10-08"
+ :finance.posting/account #data/link paypal
+ :finance.posting/balances {USD 23.71M}}
+
+
+{:type :finance/posting
+ :description "Contacted customer service rep about disabling dividend reinvestment."
+ :time/at #inst "2014-05-21"
+ :finance.posting/account #data/link schwab-checking}
+
+
+{:type :finance/posting
+ :title "SCH US AGG BND ETF"
+ :description "Rev Reinvest Shares"
+ :time/at #inst "2013-10-08T00:00:00Z"
+ :finance.posting/account #data/link schwab-individual
+ :finance.posting/amount #finance/$ [1.0423M SCHZ]
+ :finance.posting/cost #finance/$ [52.91M USD]}
+
+
+
+;; ## Line Items
+
+;; A line item represents a transacted amount of a product at a certain price.
+;; A common example is a line on a receipt, showing the purchase of an item.
+;;
+;; Typically, the _amount_ will be a bare number or a physical quantity. The
+;; _price_ is the unit price of the item, as a financial quantity. The _total_
+;; multiplies the two and takes the commodity specified in the price. This is
+;; rendered like:
+;;
+;;     $20.18 (2.0 lb @ $10.09)
+;;
+;; When the amount is a financial quantity and the price is a regular number,
+;; it's considered to be a percentage of the amount. One common example is tax,
+;; which is applied as a fraction of the bill total. This is rendered like:
+;;
+;;     $12.22 ($127.29 @ 9.6%)
+
+
+; /finances/ledgers/user/journals/general/2013/10/08/tx-07/posting-01/item-01
+{:type :finance/item
+ :title "NOW Foods Creatine Powder, 2.2 Pounds"
+ :description "..."
+ :finance.item/id "B0013OXD38"
+ :finance.item/vendor "Amazon.com LLC"
+ :finance.item/amount 1
+ :finance.item/price #finance/$ [20.18M USD]
+ :finance.item/total #finance/$ [20.18M USD]
+ :finance.item/taxes #{:seattle-sales}}  ; TODO: better way to track taxes applied
+
+
+{:type :finance/item
+ :title "Seattle Sales Tax"
+ :finance.item/amount #finance/$ [127.29M USD]
+ :finance.item/price 0.096M
+ :finance.item/subtotal #finance/$ [12.22M USD]}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+; This CSV from Schwab makes the following data to represent the exchange:
+; "10/08/2013","Rev Reinvest Shares","SCHZ","SCH US AGG BND ETF","1.0423","$50.7643","","-$52.91",
+
+; posting-1
+{:type :finance/posting
+ :title "SCH US AGG BND ETF"
+ :description "Rev Reinvest Shares"
+ :time/at #inst "2013-10-08T00:00:00Z"
+ :data/sources #{#data/link source-csv}
+ :finance.posting/account #data/link schwab-individual
+ :finance.posting/amount #finance/$ [-52.91M USD]}
+
+; posting-2
+{:type :finance/posting
+ :title "SCH US AGG BND ETF"
+ :description "Rev Reinvest Shares"
+ :time/at #inst "2013-10-08T00:00:00Z"
+ :data/sources #{#data/link source-csv}
+ :finance.posting/account #data/link schwab-individual
+ :finance.posting/amount #finance/$ [1.0423M SCHZ]
+ :finance.posting/cost #finance/$ [50.7643M USD]}
+
+; transaction
+{:type :finance/transaction
+ :title "SCHZ - Reinvest Dividend"
+ :description "Automatic dividend reinvestment."
+ :time/at #inst "2013-10-08T00:00:00Z"
+ :finance.transaction/entries [#data/link posting-1
+                               #data/link posting-2]
+ :finance.transaction/state :finance.transaction.state/cleared}
