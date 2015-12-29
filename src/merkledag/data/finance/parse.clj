@@ -166,8 +166,17 @@
    :AccountPath vector
    :AccountAlias keyword
 
-   ; TODO: Account Definitions
-   })
+   :AccountDefinition
+     (fn ->account-definition
+       [path & children]
+       (->
+         {:data/type :finance/account-definition
+          :path path}
+         (collect
+           {:alias     (collect-one :AccountAliasDirective)
+            :assertion (collect-one :AccountAssertion)
+            :note      (collect-one :AccountNote)}
+           children)))})
 
 
 (def metadata-transforms
