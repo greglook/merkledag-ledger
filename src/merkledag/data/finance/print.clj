@@ -28,7 +28,7 @@
   "Renders a ledger file from a sequence of entries. Returns a string of the
   file contents."
   [entries]
-  (str/join "\n\n" (map render-entry entries)))
+  (str/join "\n\n" (map (comp str/trim render-entry) entries)))
 
 
 
@@ -84,6 +84,17 @@
 (defmethod render-entry :CommentBlock
   [[_ text]]
   (str "; " text))
+
+
+(defmethod render-entry :finance/account-definition
+  [account]
+  (str "account " (str/join ":" (:path account)) "\n"
+       (when (:alias account)
+         (str "    alias " (name (:alias account)) "\n"))
+       (when (:assertion account)
+         (str "    assert " (:assertion account) "\n"))
+       (when (:note account)
+         (str "    note " (:note account) "\n"))))
 
 
 (defmethod render-entry :Transaction
