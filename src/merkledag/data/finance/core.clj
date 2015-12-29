@@ -137,3 +137,32 @@
   [root books journal entries]
   ; FIXME: implement
   root)
+
+
+; Idea: write a 'loader' function which takes a store and a root id and then
+; reads the full financial history into memory as a direct data structure. Each
+; loaded value would have metadata attached to it indicating the block the data
+; is stored in, so that mutations could be made with minimal replacement.
+;
+; For example, in the 'loaded' version a transaction has a vector of posting
+; values, rather than a vector of links to posting blocks. Each posting value's
+; metadata indicates the block it was loaded from. We can mutate the
+; transaction by adding or removing postings, and then when "saving" the state,
+; we know to try serializing the posting values into individual blocks to link
+; to. If there's already metadata, we link to that block. If there's no
+; metadata, we don't know a source for the object and hence create a new block
+; for it.
+
+(defn load-data
+  "Loads the full financial data system into memory."
+  [store root-id]
+  '...
+  nil)
+
+
+(defn write-data!
+  "Writes an updated system state to the block store, creating new nodes as
+  needed to store the nodes. Returns an updated system value."
+  [store system]
+  '...
+  system)
