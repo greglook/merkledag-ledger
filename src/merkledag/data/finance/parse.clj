@@ -7,7 +7,8 @@
       [format :as ftime])
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [instaparse.core :as parse]))
+    [instaparse.core :as parse]
+    [merkledag.data.finance.quantity :as quantity]))
 
 
 (def ledger-parser
@@ -151,10 +152,7 @@
        [& children]
        (when (not= '("0") children)
          (let [cfg (into {} children)]
-           ; FIXME: create a real quantity (meajure?)
-           (tagged-literal 'finance/$
-                           [(:Number cfg)
-                            (:CommodityCode cfg)]))))
+           (quantity/->Quantity (:Number cfg) (:CommodityCode cfg)))))
 
    ; FIXME: implement
    :CommodityDefinition identity

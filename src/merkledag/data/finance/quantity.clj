@@ -8,4 +8,4 @@
 
 (defmethod print-method Quantity
   [quantity writer]
-  (print-method (tagged-literal 'finance/$ [(:value quantity) (:commodity quantity)])))
+  (print-method (tagged-literal 'finance/$ [(:value quantity) (:commodity quantity)]) writer))
