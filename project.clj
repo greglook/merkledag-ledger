@@ -20,6 +20,7 @@
                'org.joda.time.LocalDate {'time/date str}
                'org.joda.time.Interval {'time/interval #(vector (clj-time.core/start %) (clj-time.core/end %))}
                'blocks.data.Block {'blocks.data.Block (partial into {})}
+               'merkledag.data.finance.quantity.Quantity {'finance/$ (juxt :value :commodity)}
                'merkledag.link.MerkleLink {'data/link (juxt :name :target :tsize)}
                'multihash.core.Multihash {'data/hash 'multihash.core/base58}}}
 

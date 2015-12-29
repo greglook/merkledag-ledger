@@ -17,7 +17,8 @@
       [graph :as graph])
     (merkledag.data.finance
       [parse :as parse]
-      [print :as print])
+      [print :as print]
+      [quantity :as quantity])
     [puget.printer :as puget]))
 
 
@@ -25,6 +26,7 @@
   {:print-color true
    :print-handlers
    {java.util.UUID (puget/tagged-handler 'uuid str)
+    merkledag.data.finance.quantity.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
     org.joda.time.DateTime (puget/tagged-handler 'inst str)
     org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
     org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))}})
