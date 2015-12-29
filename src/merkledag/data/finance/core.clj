@@ -4,7 +4,10 @@
     [blocks.core :as block]
     [clj-time.core :as time]
     [merkledag.core :as merkle]
-    [merkledag.link :as link]))
+    [merkledag.data.finance.quantity]
+    [merkledag.link :as link])
+  (:import
+    merkledag.data.finance.quantity.Quantity))
 
 
 (defn ->finance-data
@@ -62,6 +65,7 @@
   "Returns a lazy sequence of prices for the given commodity."
   [data commodity opts]
   ; TODO: bind graph?
+  #_
   (year-seek
     (merkle/get-path (:graph data) @(:root data) "prices" commodity)
     opts))
@@ -70,7 +74,7 @@
 (defn get-quote
   "Looks up the most recent price for the given commodity as of time `at`."
   ([data commodity]
-   (lookup-price data commodity (time/now)))
+   (get-quote data commodity (time/now)))
   ([data commodity at]
    (first (get-prices data commodity {:marker at, :time-key :time/at, :reverse true}))))
 

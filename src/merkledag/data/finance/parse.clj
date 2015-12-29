@@ -155,9 +155,9 @@
            (quantity/->Quantity (:Number cfg) (:CommodityCode cfg)))))
 
    ; FIXME: implement
-   :CommodityDefinition identity
-   :CommodityConversion identity
-   :CommodityPrice identity
+   ;:CommodityDefinition identity
+   ;:CommodityConversion identity
+   ;:CommodityPrice identity
    })
 
 
