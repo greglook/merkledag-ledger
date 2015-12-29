@@ -15,7 +15,9 @@
     (merkledag
       [core :as merkle]
       [graph :as graph])
-    [merkledag.data.finance.parse :as parse]
+    (merkledag.data.finance
+      [parse :as parse]
+      [print :as print])
     [puget.printer :as puget]))
 
 
