@@ -85,7 +85,7 @@
 ;;
 ;; TODO: method to list the asset class breakdown for funds
 
-; /finances/commodities/USD
+; /commodities/USD
 {:title "United States Dollar"
  :data/type :finance/commodity
  :finance.commodity/code USD
@@ -94,7 +94,7 @@
  :finance.commodity/format "$1,000.00"}
 
 
-; /finances/commodities/TLSA
+; /commodities/TLSA
 {:title "TESLA MOTORS INC"
  :data/type :finance/commodity
  :finance.commodity/code TSLA
@@ -118,7 +118,7 @@
 ;; - source      string describing the source of the data
 
 
-; /finances/prices/VFIFX
+; /prices/VFIFX
 {:data/type :time/year-index
  :time.tree-index/children
  {2013 #data/link "2013"
@@ -126,7 +126,7 @@
   2015 #data/link "2015"}}
 
 
-; /finances/prices/VFIFX/2015
+; /prices/VFIFX/2015
 [{:time/at #inst "2015-01-05T03:22:24Z"
   :finance.price/commodity VFIFX
   :finance.price/value #finance/$ [28.42M USD]}
@@ -151,7 +151,7 @@
 ;;   in the subtree.
 ;;
 ;; To this end, accounts are given a stable identifier by creating an
-;; `open-account` structure and linking all postings and metadata to it. The
+;; `account-root` structure and linking all postings and metadata to it. The
 ;; opening data should include enough unique information to identify the
 ;; represented account.
 ;;
@@ -166,17 +166,18 @@
 ;; - commodities     set of commodity codes allowed in the account, if restricted
 ;; - interest-rate   APR paid/charged, if any
 ;; - children        set of links to child accounts
+;; - depreciation?   information about depreciaton method, period, lifespan, etc.
 
 
-; /finances/ledgers/user/accounts/assets/cash/charles-schwab/investor-checking/-id
-{:data/type :finance/open-account
+; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking/-id
+{:data/type :finance/account-root
  :title "Charles Schwab Investor Checking 4400-14XXXXXX"
  :description "Opened a checking account with Schwab."
  :finance.account/institution #data/link -institution
  :time/at #inst "2013-10-08T00:00:00Z"}
 
 
-; /finances/ledgers/user/accounts/assets/cash/charles-schwab
+; /ledgers/user/accounts/assets/cash/charles-schwab
 {:type :finance/account
  :title "Charles Schwab"
  :finance.account/type :finance.account.type/group
@@ -184,7 +185,7 @@
  :group/children #{#data/link investor-checking}}
 
 
-; /finances/ledgers/user/accounts/assets/cash/charles-schwab/investor-checking
+; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking
 {:type :finance/account
  :title "Investor Checking"
  :description "High-Yield Investor Checking Account"
@@ -196,7 +197,7 @@
  :finance.account/interest-rate 0.005}
 
 
-; /finances/ledgers/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
+; /ledgers/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
 {:type :finance/account
  :title "31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX"
  :finance.account/type :finance.account.type/bitcoin
@@ -218,14 +219,14 @@
 ;; - entries   Set of entries grouped into this transaction.
 ;; - state     Whether the transaction has cleared or is still pending.
 
-; /finances/ledgers/user/journals/general
+; /ledgers/user/journals/general
 {:type :finance/journal
  :title "General Transactions"
  :description "All-purpose transaction journal."
  :finance.journal/entries [#data/link "2013"
                            #data/link "2014"]}
 
-; /finances/ledgers/user/journals/general/2013/10/08/tx-07
+; /ledgers/user/journals/general/2013/10/08/tx-07
 {:type :finance/transaction
  :title "Dividend Reinvestment"
  :description "Automatic reinvestment."
@@ -261,7 +262,7 @@
 ;; - items         A list of itemized 
 
 
-; /finances/ledgers/user/journals/general/2013/10/08/tx-07/posting-01
+; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01
 {:type :finance/posting
  :time/at #inst "2013-10-08"
  :finance.posting/account #data/link paypal
@@ -303,7 +304,7 @@
 ;;     $12.22 ($127.29 @ 9.6%)
 
 
-; /finances/ledgers/user/journals/general/2013/10/08/tx-07/posting-01/item-01
+; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01/item-01
 {:type :finance/item
  :title "NOW Foods Creatine Powder, 2.2 Pounds"
  :description "..."
