@@ -43,12 +43,12 @@
 
 
 (defn- update-time
-  [obj]
-  (if-let [t (:time obj)]
-    (update obj :time
+  [obj time-key date-key]
+  (if-let [t (get obj time-key)]
+    (update obj time-key
       #(if (and (vector? %) (= :Time (first %)))
          (let [[_ time zone] %]
-           (parse-time (:date obj) time zone))
+           (parse-time (get obj date-key) time zone))
          %))
     obj))
 
@@ -137,7 +137,7 @@
    :Percentage
      (fn ->percentage
        [number]
-       [:% (/ (second number) 100)])})
+       [(/ number 100) '%])})
 
 
 (def commodity-transforms
@@ -246,7 +246,7 @@
              (update data :description (partial str/join "\n"))
              data))
          ; TODO: pull UUID metadata out
-         (update-time)))})
+         (update-time :time/at ::date)))})
 
 
 (def posting-transforms
@@ -279,7 +279,7 @@
                :comments (collect-all :MetaComment)
                :items    (collect-all :LineItem)}
               children)
-            (update-time)
+            (update-time :time :date)
             (as-> posting
               (cond-> posting
                 (and (or (nil? (first (:form amount)))
