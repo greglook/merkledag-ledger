@@ -192,14 +192,22 @@
    :AccountDefinition
      (fn ->account-definition
        [path & children]
-       (collect
-         {:data/type :finance/account
-          :title (last path)
-          :ledger.account/path path}
-         {:ledger.account/alias     (collect-one :AccountAliasDirective)
-          :ledger.account/assertion (collect-one :AccountAssertion)
-          :description              (collect-one :AccountNote)}
-         children))})
+       (let [data (collect
+                    {:data/type :finance/account
+                     :title (last path)
+                     ::path path}
+                    {:finance.account/alias (collect-one :AccountAliasDirective)
+                     ::assertion            (collect-one :AccountAssertion)
+                     :description           (collect-one :AccountNote)}
+                    children)
+             assertion (::assertion data)]
+         (dissoc
+           (if-let [match (and assertion (re-find #"commodity == \"(\S+)\""
+                                                  assertion))]
+             (assoc data :finance.account/allowed-commodities
+                    #{((commodity-transforms :CommodityCode) (second match))})
+             data)
+           ::assertion)))})
 
 
 (def metadata-transforms
