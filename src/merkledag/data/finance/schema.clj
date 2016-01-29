@@ -28,6 +28,13 @@
    schema))
 
 
+(defn link-table
+  "Schema for a map of strings to values, implemented with a node containing
+  only a link-table."
+  [schema]
+  {s/Str (link-to schema)})
+
+
 (defn- constrained-keyword
   "Schema for a keyword with a mandatory namespace component."
   [ns]
@@ -162,7 +169,7 @@
 
 
 (defschema PriceData
-  {CommodityCode (link-to {s/Int (link-to PriceHistory)})})
+  {CommodityCode (link-to (link-table PriceHistory))})
 
 
 
@@ -361,11 +368,12 @@
 
 (defschema LedgerHistory
   {:data/type (s/eq :finance/ledger)
-   :finance.ledger/transactions [(link-to Transaction)]})
+   :finance.ledger/transactions [(link-to Transaction)]
+   :time/date LocalDate})
 
 
 (defschema LedgerData
-  {s/Int (link-to {s/Int (link-to {s/Int (link-to LedgerHistory)})})})
+  (link-table (link-to (link-table (link-to (link-table LedgerHistory))))))
 
 
 

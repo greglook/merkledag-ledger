@@ -384,7 +384,7 @@
 (defmethod integrate-entry :finance/price
   [data entry]
   (let [code (:finance.price/commodity entry)
-        year-path [:prices code (time/year (:time/at entry))]
+        year-path [:prices code (str (time/year (:time/at entry)))]
         prices (or (get-in data year-path)
                    {:data/type :finance/price-history
                     :finance.price/commodity code
@@ -430,7 +430,7 @@
 (defmethod integrate-entry :finance/account
   [data entry]
   (when-not *book-name*
-    (throw (RuntimeException. "Must bind *book-name* to parse accounts!")))
+    (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
   (let [path (::path entry)
         current-data (get-account (get-in data [:books *book-name* :accounts]) path)
         new-data (merge current-data (dissoc entry ::path))]
