@@ -201,10 +201,10 @@
 (defschema AccountDefinition
   "Schema for an object defining the properties of an account."
   {:data/type (s/eq :finance/account)
-   (s/optional-key :data/uuid) UUID
    :title s/Str
    (s/optional-key :description) s/Str
    :finance.account/id (link-to AccountRoot)
+   (s/optional-key :finance.account/state) (s/enum :open :closed)
    (s/optional-key :finance.account/type) AccountTypeKey
    (s/optional-key :finance.account/institution) (link-to s/Any)
    (s/optional-key :finance.account/external-id) s/Str
