@@ -170,7 +170,7 @@
      (fn ->account-definition
        [path & children]
        (->
-         {:data/type :finance/account-definition
+         {::type ::account-definition
           :path path}
          (collect
            {:alias     (collect-one :AccountAliasDirective)
@@ -284,6 +284,67 @@
 
 
 
+;; ## Data Integration
+
+(def ^:dynamic *book-name*
+  "String naming the current set of books being parsed."
+  nil)
+
+
+(def ^:dynamic *journal-name*
+  "String naming the current journal being parsed."
+  nil)
+
+
+(defn assoc-some
+  ([x k v]
+   (if (some? v)
+     (assoc x k v)
+     x))
+  ([x k v & more]
+   (->> more
+        (partition-all 2)
+        (cons [k v])
+        (reduce #(assoc-some %1 (first %2) (second %2)) x))))
+
+
+(defn integrater-dispatch
+  "Selects an integration dispatch value based on the argument type."
+  [_ entry]
+  (if (vector? entry)
+    (first entry)
+    (::type entry)))
+
+
+(defmulti integrate-entry
+  "Integrates the given entry into a data system."
+  #'integrater-dispatch)
+
+
+(defmethod integrate-entry :default
+  [data entry]
+  (println "Ignoring entry" (integrater-dispatch data entry))
+  data)
+
+
+(defmethod integrate-entry ::account-definition
+  [data entry]
+  (println "account" (str/join ":" (:path entry)))
+  (let [parsed-data (assoc-some
+                      {:data/type :finance/account
+                       :title (last (:path entry))}
+                      :description (:note entry)
+                      :ledger/alias (:alias entry)
+                      :ledger/assertion (:assertion entry)
+                      :ledger/journal *journal-name*)
+        [current-path current-data] (find (:accounts data) (:path entry))
+        new-data (merge current-data parsed-data)]
+    (if (= current-data new-data)
+      data
+      (assoc-in data [:accounts (or current-path (:path entry))] new-data))))
+
+
+
 ;; ## File Parsing
 
 (defn group-lines
@@ -299,8 +360,8 @@
 (defn add-source
   "Adds a `:parse/source` key to associative values in a parsed entry."
   [source entry]
-  (if (associative? (second entry))
-    (update entry 1 assoc :parse/source (apply subs source (parse/span entry)))
+  (if (map? entry)
+    (assoc entry :parse/source (apply subs source (parse/span entry)))
     entry))
 
 
@@ -315,13 +376,14 @@
 
 (defn parse-file
   "Parse a single file, returning a sequence of ledger entries."
-  [file]
+  [data file]
   (->> file
        (io/file)
        (io/reader)
        (line-seq)
        (group-lines)
-       (mapcat parse-group)))
+       (mapcat parse-group)
+       (reduce integrate-entry data)))
 
 
 (defn parse-files
