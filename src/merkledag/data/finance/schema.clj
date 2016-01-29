@@ -16,13 +16,16 @@
 (defn link-to
   "Schema for a merkle link to an object which must objey the given schema.
   Currently, the linked object is **NOT** recursively checked."
-  ; TODO: implement recursive link schema
   ([schema]
-   MerkleLink)
+   MerkleLink
+   ; TODO: override link until I figure out how to do this.
+   schema)
   ([name schema]
    (s/constrained
      MerkleLink
-     #(= name (:name %)))))
+     #(= name (:name %)))
+   ; TODO: ditto
+   schema))
 
 
 (defn- constrained-keyword
@@ -118,19 +121,29 @@
 
 (defschema CommodityDefinition
   "Schema for a commodity definition directive."
-  {:data/type (s/eq :finance/commodity)
-   :title s/Str
-   :finance.commodity/code
-     CommodityCode
+  {:title s/Str
+   :data/type (s/eq :finance/commodity)
+   :finance.commodity/code CommodityCode
+   (s/optional-key :description) s/Str
+   (s/optional-key :data/sources) #{(link-to s/Any)}
    (s/optional-key :finance.commodity/currency-symbol)
      (s/constrained s/Str #(= 1 (count %)))
    ; TODO: format?
-   (s/optional-key :finance.commodity/asset-class)
+   (s/optional-key :finance.commodity/asset-classes)
      (s/conditional map? AssetClassBreakdown
                     :else AssetClassKey)
-   (s/optional-key :finance.commodity/sector)
+   (s/optional-key :finance.commodity/sectors)
      (s/conditional map? CommoditySectorBreakdown
                     :else CommoditySectorKey)})
+
+
+(defschema CommodityData
+  {CommodityCode (link-to CommodityDefinition)}
+  #_ ; Disabled until link values are implemented
+  (s/constrained
+    {CommodityCode (link-to CommodityDefinition)}
+    (partial every? (fn [[c l]] (= c (:name l))))))
+
 
 
 
@@ -141,12 +154,15 @@
 ;; shrink. The conversion rate between two commodities determines the primary
 ;; commodity's _price_ in the second (or 'base') commodity.
 
-(defschema PriceEntry
-  {:data/type (s/eq :finance/price)
-   :time/at DateTime
+(defschema PriceHistory
+  {:data/type (s/eq :finance/price-history)
    :finance.price/commodity CommodityCode
-   :finance.price/value Quantity
-   (s/optional-key :data/source) #{(link-to s/Any)}})
+   :finance.price/points [{:time DateTime, :value Quantity}]
+   (s/optional-key :data/sources) #{(link-to s/Any)}})
+
+
+(defschema PriceData
+  {CommodityCode (link-to {s/Int (link-to PriceHistory)})})
 
 
 
@@ -192,18 +208,20 @@
 
 (defschema AccountRoot
   "Schema for an object identifying the root of an account."
-  {:data/type (s/eq :finance/account-root)
-   :title s/Str
+  {:title s/Str
+   :data/type (s/eq :finance/account-root)
    (s/optional-key :description) s/Str
    (s/optional-key :time/at) DateTime})
 
 
 (defschema AccountDefinition
   "Schema for an object defining the properties of an account."
-  {:data/type (s/eq :finance/account)
-   :title s/Str
+  {:title s/Str
+   :data/type (s/eq :finance/account)
    (s/optional-key :description) s/Str
-   :finance.account/id (link-to AccountRoot)
+   (s/optional-key :data/sources) #{(link-to s/Any)}
+   (s/optional-key :finance.account/id) (link-to AccountRoot)
+   (s/optional-key :finance.account/alias) s/Keyword
    (s/optional-key :finance.account/state) (s/enum :open :closed)
    (s/optional-key :finance.account/type) AccountTypeKey
    (s/optional-key :finance.account/institution) (link-to s/Any)
@@ -211,7 +229,11 @@
    (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
    (s/optional-key :finance.account/interest-rate) s/Num
    (s/optional-key :finance.account/interest-periods) s/Num
-   (s/optional-key :finance.account/children) #{(link-to AccountDefinition)}})
+   (s/optional-key :group/children) #{(link-to (s/recursive #'AccountDefinition))}})
+
+
+(defschema AccountTrees
+  #{(link-to AccountDefinition)})
 
 
 
@@ -337,6 +359,15 @@
   )
 
 
+(defschema LedgerHistory
+  {:data/type (s/eq :finance/ledger)
+   :finance.ledger/transactions [(link-to Transaction)]})
+
+
+(defschema LedgerData
+  {s/Int (link-to {s/Int (link-to {s/Int (link-to LedgerHistory)})})})
+
+
 
 ;; ## System Layout
 
@@ -353,39 +384,15 @@
 ;;
 ;; This node should probably be a commit to track the history of updates.
 
-(comment
-  (defschema FinanceRoot
-    {:commodities (link-to "commodities" CommodityDefinitions)
-     :prices (link-to "prices" PriceData)
-     :ledgers (link-to "ledgers" LedgerData)})
+(defschema Books
+  {:accounts (link-to "accounts" AccountTrees)
+   :ledger (link-to "ledger" LedgerData)})
 
-  (defschema CommodityDefinitions
-    (s/constrained
-      {CommodityCode (link-to CommodityDefinition)}
-      (partial every? (fn [[c l]] (= (str c) (:name l))))))
 
-  (defschema PriceData
-    (s/constrained
-      {CommodityCode (link-to PriceHistory)}
-      (partial every? (fn [[c l]] (= (str c) (:name l))))))
-
-  (defschema PriceHistory
-    ; TODO: table of years -> PriceEntry vectors
-    )
-
-  (def LedgerData
-    (s/constrained
-      {s/Str (link-to LedgerRoot)}
-      (partial every? (fn [[n l]] (= n (:name l))))))
-
-  (def LedgerRoot
-    (link-table
-      {"accounts" (link-table {s/Str AccountDefinition})
-       "journals" (link-table {s/Str JournalHistory})}))
-
-  (def JournalHistory
-    ; TODO: table of yyyy/mm/dd -> Transaction vectors
-    ))
+(defschema FinanceRoot
+  {:commodities (link-to "commodities" CommodityData)
+   :prices (link-to "prices" PriceData)
+   :books (link-to "books" {s/Str (link-to Books)})})
 
 
 ; /finances/
@@ -397,7 +404,7 @@
 ;     VFIFX/
 ;       2015 -> [PriceEntry]
 ;     ...
-;   ledgers/
+;   books/
 ;     personal/
 ;       accounts/
 ;         assets/... -> AccountDefinition
@@ -405,23 +412,21 @@
 ;         income/...
 ;         expenses/...
 ;         ...
-;       journals/
-;         general/
-;           2015/10/08/
-;             tx-01/ -> Transaction
-;               posting-01/ -> Posting
-;                 invoice/ -> Invoice
-;                   item-01 -> LineItem
-;                   item-02
-;                   item-03
-;                   ...
-;               posting-02/...
-;               ...
-;             tx-02/...
+;       ledger/
+;         2015/10/08/
+;           tx-01/ -> Transaction
+;             posting-01/ -> Posting
+;               invoice/ -> Invoice
+;                 item-01 -> LineItem
+;                 item-02
+;                 item-03
+;                 ...
+;             posting-02/...
 ;             ...
+;           tx-02/...
 ;           ...
-;         ...
+;         2016/...
 ;     joint/
 ;       accounts/...
-;       ...
+;       ledger/...
 ;     ...
