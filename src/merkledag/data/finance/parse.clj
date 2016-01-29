@@ -171,9 +171,16 @@
           :ledger.commodity/options (collect-all :CommodityOption)}
          children))
 
-   ; FIXME: implement
+   :CommodityPrice
+     (fn ->commodity-price
+       [date code price]
+       {:data/type :finance/price
+        :time/at date
+        :finance.price/commodity code
+        :finance.price/value price})
+
+   ; Not supported:
    ;:CommodityConversion identity
-   ;:CommodityPrice identity
    })
 
 
@@ -340,8 +347,6 @@
 
 (defmethod integrate-entry :finance/commodity
   [data entry]
-  (println "commodity" (:finance.commodity/code entry))
-  ; TODO: implement
   (let [code (:finance.commodity/code entry)
         current (get-in data [:commodities code])
         new-data (merge current entry)]
@@ -350,9 +355,17 @@
       (assoc-in data [:commodities code] new-data))))
 
 
+(defmethod integrate-entry :finance/price
+  [data entry]
+  (let [code (:finance.price/commodity entry)
+        year-path [:prices code (time/year (:time/at entry))]
+        prices (get-in data year-path)]
+    ; TODO: look for duplicate prices
+    (assoc-in data year-path (sort-by :time/at (conj prices entry)))))
+
+
 (defmethod integrate-entry :finance/account
   [data entry]
-  (println "account" (str/join ":" (:ledger.account/path entry)))
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to parse accounts!")))
   (let [path (:ledger.account/path entry)
