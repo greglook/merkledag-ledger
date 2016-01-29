@@ -448,10 +448,10 @@
 
 
 (defn add-source
-  "Adds a `:parse/source` key to associative values in a parsed entry."
+  "Adds a `:data/sources` key to associative values in a parsed entry."
   [source entry]
   (if (map? entry)
-    (assoc entry :parse/source (apply subs source (parse/span entry)))
+    (update entry :data/sources (fnil conj #{}) (apply subs source (parse/span entry)))
     entry))
 
 
