@@ -18,8 +18,10 @@
     (merkledag.data.finance
       [parse :as parse]
       [print :as print]
-      [quantity :as quantity])
-    [puget.printer :as puget]))
+      [quantity :as quantity]
+      [schema :as fschema])
+    [puget.printer :as puget]
+    [schema.core :as s]))
 
 
 (def print-options
