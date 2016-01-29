@@ -345,6 +345,18 @@
   data)
 
 
+(defmethod integrate-entry :CommentHeader
+  [data entry]
+  ; Ignored
+  data)
+
+
+(defmethod integrate-entry :CommentBlock
+  [data entry]
+  ; Ignored
+  data)
+
+
 (defmethod integrate-entry :finance/commodity
   [data entry]
   (let [code (:finance.commodity/code entry)

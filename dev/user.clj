@@ -98,9 +98,10 @@
                  (println)
                  (println "Interpreted:")
                  (puget/cprint interpreted print-options)
-                 (println)
-                 (println "Rendered:")
-                 (println (print/render-file interpreted)))
+                 #_
+                 (do (println)
+                     (println "Rendered:")
+                     (println (print/render-file interpreted))))
                true)))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
