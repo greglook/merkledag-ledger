@@ -317,7 +317,11 @@
 
 (defn interpret-parse
   [tree]
-  (parse/transform ledger-transforms tree))
+  (try
+    (parse/transform ledger-transforms tree)
+    (catch Exception e
+      (throw (ex-info (str "Failed to interpret parse tree: " e)
+                      {:tree tree})))))
 
 
 
