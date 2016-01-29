@@ -166,9 +166,9 @@
        (collect
          {:data/type :finance/commodity
           :finance.commodity/code code}
-         {:title                    (collect-one :CommodityNote)
-          :ledger.commodity/format  (collect-one :CommodityFormat)
-          :ledger.commodity/options (collect-all :CommodityOption)}
+         {:title    (collect-one :CommodityNote)
+          ::format  (collect-one :CommodityFormat)
+          ::options (collect-all :CommodityOption)}
          children))
 
    :CommodityPrice
@@ -361,7 +361,7 @@
   [data entry]
   (let [code (:finance.commodity/code entry)
         current (get-in data [:commodities code])
-        new-data (merge current entry)]
+        new-data (merge current (dissoc entry ::format ::options))]
     (if (= current new-data)
       data
       (assoc-in data [:commodities code] new-data))))
