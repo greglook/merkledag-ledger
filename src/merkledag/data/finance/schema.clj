@@ -343,17 +343,17 @@
 
 (defschema Transaction
   "Schema for an object representing a financial transaction."
-  {:data/type (s/eq :finance/transaction)
+  {:title s/Str
+   :data/type (s/eq :finance/transaction)
+   :finance.transaction/entries [(link-to Posting)]
    :time/at DateTime
-   :title s/Str
    (s/optional-key :description) s/Str
+   (s/optional-key :data/sources) #{(link-to s/Any)}
    (s/optional-key :finance.transaction/id) s/Str
    (s/optional-key :finance.transaction/status)
-     (s/enum :finance.transaction.status/uncleared
-             :finance.transaction.status/pending
-             :finance.transaction.status/cleared)
+     (s/enum :uncleared :pending :cleared)
    (s/optional-key :finance.transaction/code) s/Str
-   :finance.transaction/entries [(link-to Posting)]}
+   (s/optional-key :finance.transaction/meta) {s/Keyword s/Any}}
   ; TODO: validations
   ; - real posting weights must sum to zero
   )

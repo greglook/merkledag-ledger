@@ -228,19 +228,25 @@
 
    :Transaction
      (fn [date & children]
-       [:Transaction
-        (->
-          {:date date}
-          (collect
-            {:title    (collect-one :TxMemo)
-             :status   (collect-one :TxStatus)
-             :code     (collect-one :TxCode)
-             :time     (collect-one :TimeMeta)
-             :meta     (collect-map :MetaEntry)
-             :comments (collect-all :MetaComment)
-             :postings (collect-all :Posting)}
-            children)
-          (update-time))])})
+       (->
+         {:data/type :finance/transaction
+          :time/at (ctime/to-date-time date)
+          ::date date}
+         (collect
+           {:title                       (collect-one :TxMemo)
+            :description                 (collect-all :MetaComment)
+            :time/at                     (collect-one :TimeMeta)
+            :finance.transaction/status  (collect-one :TxStatus)
+            :finance.transaction/code    (collect-one :TxCode)
+            :finance.transaction/meta    (collect-map :MetaEntry)
+            :finance.transaction/entries (collect-all :Posting)}
+           children)
+         (as-> data
+           (if (:description data)
+             (update data :description (partial str/join "\n"))
+             data))
+         ; TODO: pull UUID metadata out
+         (update-time)))})
 
 
 (def posting-transforms
