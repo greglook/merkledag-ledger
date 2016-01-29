@@ -5,6 +5,7 @@
     [merkledag.link :as link]
     [schema.core :as s :refer [defschema]])
   (:import
+    java.util.UUID
     merkledag.data.finance.quantity.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
@@ -200,6 +201,7 @@
 (defschema AccountDefinition
   "Schema for an object defining the properties of an account."
   {:data/type (s/eq :finance/account)
+   (s/optional-key :data/uuid) UUID
    :title s/Str
    (s/optional-key :description) s/Str
    :finance.account/id (link-to AccountRoot)
@@ -208,6 +210,7 @@
    (s/optional-key :finance.account/external-id) s/Str
    (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
    (s/optional-key :finance.account/interest-rate) s/Num
+   (s/optional-key :finance.account/interest-periods) s/Num
    (s/optional-key :finance.account/children) #{(link-to AccountDefinition)}})
 
 
@@ -351,22 +354,22 @@
 ;; This node should probably be a commit to track the history of updates.
 
 (comment
-  (def FinanceRoot
+  (defschema FinanceRoot
     {:commodities (link-to "commodities" CommodityDefinitions)
      :prices (link-to "prices" PriceData)
      :ledgers (link-to "ledgers" LedgerData)})
 
-  (def CommodityDefinitions
+  (defschema CommodityDefinitions
     (s/constrained
       {CommodityCode (link-to CommodityDefinition)}
       (partial every? (fn [[c l]] (= (str c) (:name l))))))
 
-  (def PriceData
+  (defschema PriceData
     (s/constrained
       {CommodityCode (link-to PriceHistory)}
       (partial every? (fn [[c l]] (= (str c) (:name l))))))
 
-  (def PriceHistory
+  (defschema PriceHistory
     ; TODO: table of years -> PriceEntry vectors
     )
 
