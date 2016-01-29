@@ -390,16 +390,48 @@
     (assoc-in data year-path new-prices)))
 
 
+(defn get-account
+  "Looks up an account by path, starting from the given set of accounts which
+  are children of the current node."
+  [accounts path]
+  (when-let [account (first (filter #(= (first path) (:title %)) accounts))]
+    (if-let [remaining (seq (rest path))]
+      (recur (:group/children account) remaining)
+      account)))
+
+
+(defn add-account
+  "Merges a new account definition into a set of accounts, replacing any
+  account at the same path and adding to sets where necessary."
+  [accounts path new-account]
+  (if-let [next-node (get-account accounts [(first path)])]
+    ; node exists, merge
+    (-> accounts
+        (disj next-node)
+        (conj (if (empty? path)
+                new-account
+                (update next-node :group/children add-account (rest path) new-account))))
+    ; node does not exist, create and recurse
+    (conj
+      (set accounts)
+      (if (empty? path)
+        new-account
+        {:title (first path)
+         :data/type :finance/account
+         :group/children (add-account nil (rest path) new-account)}))))
+
+
 (defmethod integrate-entry :finance/account
   [data entry]
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to parse accounts!")))
-  (let [path (:ledger.account/path entry)
-        [current-path current-data] (find (get-in data [:books *book-name* :accounts]) path)
-        new-data (merge current-data entry)]
+  (let [path (::path entry)
+        current-data (get-account (get-in data [:books *book-name* :accounts]) path)
+        new-data (merge current-data (dissoc entry ::path))]
     (if (= current-data new-data)
       data
-      (assoc-in data [:books *book-name* :accounts (or current-path path)] new-data))))
+      (update-in data [:books *book-name* :accounts]
+                 add-account (butlast path) new-data))))
 
 
 
