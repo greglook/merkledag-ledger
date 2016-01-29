@@ -440,6 +440,27 @@
                  add-account (butlast path) new-data))))
 
 
+(defmethod integrate-entry :finance/transaction
+  [data entry]
+  (when-not *book-name*
+    (throw (RuntimeException. "Must bind *book-name* to integrate transactions!")))
+  (let [date (::date entry)
+        ledger-path [:books *book-name* :ledger
+                     (str (time/year date))
+                     (format "%02d" (time/month date))
+                     (format "%02d" (time/day date))]
+        ledger (or (get-in data ledger-path)
+                   {:data/type :finance/ledger
+                    :time/date date
+                    :finance.ledger/transactions []})
+        new-ledger (update ledger :finance.ledger/transactions
+                           #(->> (dissoc entry ::date) (conj %) (sort-by :time/at) (vec)))]
+    (assoc-in data ledger-path new-ledger)))
+
+
+; TODO: (transaction-seq ledger from to)
+
+
 
 ;; ## File Parsing
 
