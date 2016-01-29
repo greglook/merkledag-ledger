@@ -132,7 +132,7 @@
    :Number
      (fn ->number
        [& digits]
-       [:Number (BigDecimal. (str/join digits))])
+       (BigDecimal. (str/join digits)))
 
    :Percentage
      (fn ->percentage
@@ -144,23 +144,29 @@
   {:CommodityCode
      (fn ->commodity-code
        [code]
-       [:CommodityCode
-        (if (= "$" code) 'USD (symbol code))])
+       (if (= "$" code) 'USD (symbol code)))
 
    :Quantity
      (fn ->quantity
-       [& children]
-       (when (not= '("0") children)
-         (let [cfg (into {} children)]
-           (quantity/->Quantity (:Number cfg) (:CommodityCode cfg)))))
+       [& [v1 v2 :as children]]
+       (cond
+         (and (= "0" v1) (nil? v2))
+           nil
+         (and (number? v1) (symbol? v2))
+           (quantity/->Quantity v1 v2)
+         (and (symbol? v1) (number? v2))
+           (quantity/->Quantity v2 v1)
+         :else
+           (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
+                           {:form children}))))
 
    :CommodityDefinition
      (fn ->commodity
-       [& children]
+       [code & children]
        (collect
-         {:data/type :finance/commodity}
+         {:data/type :finance/commodity
+          :finance.commodity/code code}
          {:title                    (collect-one :CommodityNote)
-          :finance.commodity/code   (collect-one :CommodityCode)
           :ledger.commodity/format  (collect-one :CommodityFormat)
           :ledger.commodity/options (collect-all :CommodityOption)}
          children))
