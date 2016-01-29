@@ -341,7 +341,7 @@
 
 (defmethod integrate-entry :default
   [data entry]
-  (println "Ignoring entry" (integrater-dispatch data entry))
+  (println "Ignoring unsupported entry" (integrater-dispatch data entry))
   data)
 
 
@@ -372,8 +372,24 @@
   (let [code (:finance.price/commodity entry)
         year-path [:prices code (time/year (:time/at entry))]
         prices (get-in data year-path)]
-    ; TODO: look for duplicate prices
-    (assoc-in data year-path (sort-by :time/at (conj prices entry)))))
+    (comment
+      ; TODO: compact price history by factoring out type and commodity:
+      {:data/type :finance/price-history,
+       :finance.price/commodity VFIAX,
+       :finance.price/points
+       [...
+        {:time #inst "2014-07-07T15:56:26.000Z",
+         :value #finance/$ [183.20M USD],
+         :parse/source "P 2014-07-07 08:56:26 VFIAX     $183.20\n"}
+        {:time #inst "2014-07-21T02:58:34.000Z",
+         :value #finance/$ [182.66M USD],
+         :parse/source "P 2014-07-20 19:58:34 VFIAX     $182.66\n"}
+        {:time #inst "2014-09-18T05:35:29.000Z",
+         :value #finance/$ [185.46M USD],
+         :parse/source "P 2014-09-17 22:35:29 VFIAX     $185.46\n"}
+        ...]})
+    ; TODO: deduplicate prices
+    (assoc-in data year-path (sort-by (comp ctime/to-date-time :time/at) (conj prices entry)))))
 
 
 (defmethod integrate-entry :finance/account
