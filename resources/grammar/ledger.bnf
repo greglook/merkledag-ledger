@@ -65,7 +65,7 @@ CommodityOption = 'nomarket' | 'default' ;
 
 (* Commodity Conversions and Prices *)
 CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
-CommodityPrice = <'P '> , Date , <' '> , CommodityCode , <' '+> , Quantity , NL ;
+CommodityPrice = <'P '> , ( Date | DateTime ) , <' '+> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* Standard Metadata *)
 TagName = #"[a-zA-Z0-9-]+" ;
