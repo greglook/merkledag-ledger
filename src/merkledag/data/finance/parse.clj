@@ -301,11 +301,6 @@
   nil)
 
 
-(def ^:dynamic *journal-name*
-  "String naming the current journal being parsed."
-  nil)
-
-
 (defn assoc-some
   ([x k v]
    (if (some? v)
@@ -342,23 +337,24 @@
   (println "commodity" (:finance.commodity/code entry))
   ; TODO: implement
   (let [code (:finance.commodity/code entry)
-        current (get-in data [:commodities (str code)])
+        current (get-in data [:commodities code])
         new-data (merge current entry)]
     (if (= current new-data)
       data
-      (assoc-in data [:commodities (str code)] new-data))))
+      (assoc-in data [:commodities code] new-data))))
 
 
 (defmethod integrate-entry :finance/account
   [data entry]
   (println "account" (str/join ":" (:ledger.account/path entry)))
+  (when-not *book-name*
+    (throw (RuntimeException. "Must bind *book-name* to parse accounts!")))
   (let [path (:ledger.account/path entry)
-        parsed-data (assoc-some entry :ledger/journal *journal-name*)
-        [current-path current-data] (find (:accounts data) path)
-        new-data (merge current-data parsed-data)]
+        [current-path current-data] (find (get-in data [:books *book-name* :accounts]) path)
+        new-data (merge current-data entry)]
     (if (= current-data new-data)
       data
-      (assoc-in data [:accounts (or current-path path)] new-data))))
+      (assoc-in data [:books *book-name* :accounts (or current-path path)] new-data))))
 
 
 
