@@ -154,8 +154,18 @@
          (let [cfg (into {} children)]
            (quantity/->Quantity (:Number cfg) (:CommodityCode cfg)))))
 
+   :CommodityDefinition
+     (fn ->commodity
+       [& children]
+       (collect
+         {:data/type :finance/commodity}
+         {:title                    (collect-one :CommodityNote)
+          :finance.commodity/code   (collect-one :CommodityCode)
+          :ledger.commodity/format  (collect-one :CommodityFormat)
+          :ledger.commodity/options (collect-all :CommodityOption)}
+         children))
+
    ; FIXME: implement
-   ;:CommodityDefinition identity
    ;:CommodityConversion identity
    ;:CommodityPrice identity
    })
@@ -169,14 +179,14 @@
    :AccountDefinition
      (fn ->account-definition
        [path & children]
-       (->
-         {::type ::account-definition
-          :path path}
-         (collect
-           {:alias     (collect-one :AccountAliasDirective)
-            :assertion (collect-one :AccountAssertion)
-            :note      (collect-one :AccountNote)}
-           children)))})
+       (collect
+         {:data/type :finance/account
+          :title (last path)
+          :ledger.account/path path}
+         {:ledger.account/alias     (collect-one :AccountAliasDirective)
+          :ledger.account/assertion (collect-one :AccountAssertion)
+          :description              (collect-one :AccountNote)}
+         children))})
 
 
 (def metadata-transforms
@@ -313,7 +323,7 @@
   [_ entry]
   (if (vector? entry)
     (first entry)
-    (::type entry)))
+    (:data/type entry)))
 
 
 (defmulti integrate-entry
@@ -327,21 +337,28 @@
   data)
 
 
-(defmethod integrate-entry ::account-definition
+(defmethod integrate-entry :finance/commodity
   [data entry]
-  (println "account" (str/join ":" (:path entry)))
-  (let [parsed-data (assoc-some
-                      {:data/type :finance/account
-                       :title (last (:path entry))}
-                      :description (:note entry)
-                      :ledger/alias (:alias entry)
-                      :ledger/assertion (:assertion entry)
-                      :ledger/journal *journal-name*)
-        [current-path current-data] (find (:accounts data) (:path entry))
+  (println "commodity" (:finance.commodity/code entry))
+  ; TODO: implement
+  (let [code (:finance.commodity/code entry)
+        current (get-in data [:commodities (str code)])
+        new-data (merge current entry)]
+    (if (= current new-data)
+      data
+      (assoc-in data [:commodities (str code)] new-data))))
+
+
+(defmethod integrate-entry :finance/account
+  [data entry]
+  (println "account" (str/join ":" (:ledger.account/path entry)))
+  (let [path (:ledger.account/path entry)
+        parsed-data (assoc-some entry :ledger/journal *journal-name*)
+        [current-path current-data] (find (:accounts data) path)
         new-data (merge current-data parsed-data)]
     (if (= current-data new-data)
       data
-      (assoc-in data [:accounts (or current-path (:path entry))] new-data))))
+      (assoc-in data [:accounts (or current-path path)] new-data))))
 
 
 
