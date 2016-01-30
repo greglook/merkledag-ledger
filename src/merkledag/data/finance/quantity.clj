@@ -2,6 +2,7 @@
   "Financial quantity type definition.")
 
 
+; TODO: move this to main finance ns?
 (defrecord Quantity
   [value commodity])
 

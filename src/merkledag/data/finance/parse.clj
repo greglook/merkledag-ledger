@@ -507,6 +507,7 @@
 (defn parse-file
   "Parse a single file, returning a sequence of ledger entries."
   [data file]
+  (println "Parsing file" file)
   (->> file
        (io/file)
        (io/reader)
