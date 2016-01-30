@@ -13,8 +13,7 @@
     [clojure.tools.namespace.repl :refer [refresh]]
     [instaparse.core :as insta]
     (merkledag
-      [core :as merkle]
-      [graph :as graph])
+      [core :as merkle])
     (merkledag.data.finance
       [parse :as parse]
       [print :as print]

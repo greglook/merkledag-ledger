@@ -10,7 +10,7 @@
   [[clj-time "0.11.0"]
    [instaparse "1.4.1"]
    [mvxcvi/blocks "0.5.0"]
-   [mvxcvi/merkledag-repo "0.1.0"] ; TODO: change to mvxcvi/merkledag
+   [mvxcvi/merkledag "0.2.0-SNAPSHOT"]
    [mvxcvi/puget "1.0.0"]
    [org.clojure/clojure "1.7.0"]
    [prismatic/schema "1.0.3"]]
