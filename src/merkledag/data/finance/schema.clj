@@ -273,12 +273,22 @@
    (s/optional-key :finance.account/external-id) s/Str
    (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
    (s/optional-key :finance.account/interest-rate) s/Num
-   (s/optional-key :finance.account/interest-periods) s/Num
-   (s/optional-key :group/children) #{(link-to (s/recursive #'AccountDefinition))}})
+   (s/optional-key :finance.account/interest-periods) s/Num})
+
+
+(defschema AccountGroup
+  "Schema for an object defining the properties of an account."
+  {:title s/Str
+   :data/type (s/eq :finance/account-group)
+   :group/children #{(link-to (s/conditional
+                                #(= :finance/account-group (:data/type %))
+                                  (s/recursive #'AccountGroup)
+                                :else AccountDefinition))}
+   (s/optional-key :description) s/Str})
 
 
 (defschema AccountTrees
-  #{(link-to AccountDefinition)})
+  #{(link-to AccountGroup)})
 
 
 

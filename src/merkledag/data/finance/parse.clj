@@ -427,7 +427,7 @@
       (if (empty? path)
         new-account
         {:title (first path)
-         :data/type :finance/account
+         :data/type :finance/account-group
          :group/children (add-account nil (rest path) new-account)}))))
 
 
