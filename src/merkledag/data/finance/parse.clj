@@ -87,14 +87,14 @@
 (defn- collect-all
   [k]
   (fn [children]
-    (when-let [matches (seq (filter #(and (vector? %)
-                                          (= k (first %)))
+    (when-let [matches (seq (filter #(and (vector? %) (= k (first %)))
                                     children))]
       (when-let [bad-children (seq (filter #(< 2 (count %)) matches))]
         (throw (ex-info
                  (str "Cannot unbox " (count bad-children) " " (pr-str k)
                       " children which have too many entries")
-                 {:key k, :bad-children bad-children}))))))
+                 {:key k, :bad-children bad-children})))
+      (map second matches))))
 
 
 (defn- collect-set
