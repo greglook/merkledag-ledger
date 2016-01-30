@@ -419,8 +419,14 @@
     (-> accounts
         (disj next-node)
         (conj (if (empty? path)
-                new-account
-                (update next-node :group/children add-account (rest path) new-account))))
+                (if (= :finance/account (:data/type next-node))
+                  (merge next-node new-account)
+                  (throw (ex-info "Tried to add an account at an existing intermediate node!"
+                                  {:new-account new-account, :node next-node})))
+                (if (= :finance/account-group (:data/type next-node))
+                  (update next-node :group/children add-account (rest path) new-account)
+                  (throw (ex-info "Tried to add an account as a child of a non-group node!"
+                                  {:new-account new-account, :node next-node}))))))
     ; node does not exist, create and recurse
     (conj
       (set accounts)
