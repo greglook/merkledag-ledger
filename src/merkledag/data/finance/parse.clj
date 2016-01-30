@@ -277,32 +277,31 @@
                                  [(first children) (rest children)])]
          [:Posting
           (->
-            {:account (second account)}
-            (cond->
-              amount
-                (assoc :amount amount)
-              (not= posting-type :real)
-                (assoc :type posting-type))
+            {:data/type :finance/posting
+             :finance.posting/account (second account)}
+            (assoc-some
+              :finance.posting/amount amount
+              :finance.posting/type posting-type)
             (collect
-              {:lot-cost (collect-one :PostingLotCost)
-               :lot-date (collect-one :PostingLotDate)
-               :price    (collect-one :PostingPrice)
-               :balance  (collect-one :PostingBalance)
-               :date     (collect-one :PostingDate)
-               :time     (collect-one :TimeMeta)
-               :sources  (collect-all :SourceMeta)
-               :meta     (collect-map :MetaEntry)
-               :comments (collect-all :MetaComment)
-               :items    (collect-all :LineItem)}
+              {:finance.posting/lot-cost (collect-one :PostingLotCost)
+               :finance.posting/lot-date (collect-one :PostingLotDate)
+               :finance.posting/price    (collect-one :PostingPrice)
+               :finance.posting/balance  (collect-one :PostingBalance)
+               ::date                    (collect-one :PostingDate)
+               :time/at                  (collect-one :TimeMeta)
+               :data/sources             (collect-set :SourceMeta)
+               ::meta                    (collect-map :MetaEntry)
+               :description              (collect-all :MetaComment)
+               :finance.posting/invoice  (collect-all :LineItem)}
               children)
-            (update-time :time :date)
+            (update-time :time/at ::date)
             (as-> posting
               (cond-> posting
                 (and (or (nil? (first (:form amount)))
                          (zero? (first (:form amount))))
                      (= :balanced-virtual posting-type)
                      (:balance posting))
-                  (-> (assoc :type :balance-check)
+                  (-> (assoc :finance.posting/type :balance-check)
                       (dissoc :amount)))))]))
 
    :LineItemTaxGroup keyword

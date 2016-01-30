@@ -351,13 +351,11 @@
 (defschema Posting
   "Schema for a financial posting to an account."
   {:data/type (s/eq :finance/posting)
-   (s/optional-key :description) s/Str
    :finance.posting/account (link-to AccountRoot)
+   (s/optional-key :description) s/Str
    (s/optional-key :finance.posting/id) s/Str
    (s/optional-key :finance.posting/type)
-     (s/enum :finance.posting.type/real
-             :finance.posting.type/virtual
-             :finance.posting.type/balance-check)
+     (s/enum :real :virtual :balance-check)
    (s/optional-key :finance.posting/payee) (link-to s/Any)
    (s/optional-key :finance.posting/amount) Quantity
    (s/optional-key :finance.posting/price) Quantity
