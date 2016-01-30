@@ -18,19 +18,23 @@
       [parse :as parse]
       [print :as print]
       [quantity :as quantity]
-      [schema :as fschema])
+      [schema :as schema])
     [puget.printer :as puget]
     [schema.core :as s]))
 
 
-(def print-options
-  {:print-color true
-   :print-handlers
-   {java.util.UUID (puget/tagged-handler 'uuid str)
-    merkledag.data.finance.quantity.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
-    org.joda.time.DateTime (puget/tagged-handler 'inst str)
-    org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
-    org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))}})
+(defn cprint
+  [x]
+  (puget/pprint
+    x
+    {:print-color true
+     :print-handlers
+     {java.util.UUID (puget/tagged-handler 'uuid str)
+      merkledag.data.finance.quantity.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+      org.joda.time.DateTime (puget/tagged-handler 'inst str)
+      org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
+      org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))
+      schema.utils.ValidationError (puget/tagged-handler 'schema/error schema.utils/validation-error-explain)}}))
 
 
 (defn human-duration
@@ -76,7 +80,7 @@
          (insta/failure? parses)
            (do (printf "\nParsing entry %d failed:\n\n" index)
                (when-not show? (println text ""))
-               (puget/cprint (insta/get-failure parses))
+               (cprint (insta/get-failure parses))
                false)
 
          ; If parsing is ambiguous, print first two and diff
@@ -84,9 +88,9 @@
            (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
                        index (count parses))
                (when-not show? (println text ""))
-               (puget/cprint (take 2 parses))
+               (cprint (take 2 parses))
                (println "\nDifferences:")
-               (puget/cprint (diff (first parses) (second parses)))
+               (cprint (diff (first parses) (second parses)))
                false)
 
            ; Try interpreting the parse
@@ -95,10 +99,19 @@
                ; If showing, explicitly print conversion:
                (when show?
                  (println "Parsed:")
-                 (puget/cprint (first parses))
+                 (cprint (first parses))
                  (println)
                  (println "Interpreted:")
-                 (puget/cprint interpreted print-options)
+                 (cprint interpreted)
+                 (when-let [errors (some->
+                                     {:finance/account schema/AccountDefinition
+                                      :finance/commodity schema/CommodityDefinition
+                                      :finance/transaction schema/Transaction}
+                                     (get (:data/type (first interpreted)))
+                                     (s/check (first interpreted)))]
+                   (println)
+                   (println "Validation errors:")
+                   (cprint errors))
                  #_
                  (do (println)
                      (println "Rendered:")
