@@ -407,8 +407,7 @@
    (s/optional-key :finance.transaction/id) s/Str
    (s/optional-key :finance.transaction/status)
      (s/enum :uncleared :pending :cleared)
-   (s/optional-key :finance.transaction/code) s/Str
-   (s/optional-key :finance.transaction/meta) {s/Keyword s/Any}}
+   (s/optional-key :finance.transaction/code) s/Str}
   ; TODO: validations
   ; - real posting weights must sum to zero
   )

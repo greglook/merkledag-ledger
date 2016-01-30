@@ -254,8 +254,8 @@
             :time/at                     (collect-one :TimeMeta)
             :finance.transaction/status  (collect-one :TxStatus)
             :finance.transaction/code    (collect-one :TxCode)
-            :finance.transaction/meta    (collect-map :MetaEntry)
-            :finance.transaction/entries (collect-all :Posting)}
+            :finance.transaction/entries (collect-all :Posting)
+            ::meta                       (collect-map :MetaEntry)}
            children)
          (as-> data
            (if (:description data)
