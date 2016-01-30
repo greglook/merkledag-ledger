@@ -53,6 +53,18 @@
     obj))
 
 
+(defn- assoc-some
+  ([x k v]
+   (if (some? v)
+     (assoc x k v)
+     x))
+  ([x k v & more]
+   (->> more
+        (partition-all 2)
+        (cons [k v])
+        (reduce #(assoc-some %1 (first %2) (second %2)) x))))
+
+
 (defn- collect-one
   [k]
   (fn [children]
@@ -82,8 +94,12 @@
         (throw (ex-info
                  (str "Cannot unbox " (count bad-children) " " (pr-str k)
                       " children which have too many entries")
-                 {:key k, :bad-children bad-children})))
-      (mapv second matches))))
+                 {:key k, :bad-children bad-children}))))))
+
+
+(defn- collect-set
+  [k]
+  (comp set (collect-all k)))
 
 
 (defn- collect-map
@@ -330,18 +346,6 @@
 (def ^:dynamic *book-name*
   "String naming the current set of books being parsed."
   nil)
-
-
-(defn assoc-some
-  ([x k v]
-   (if (some? v)
-     (assoc x k v)
-     x))
-  ([x k v & more]
-   (->> more
-        (partition-all 2)
-        (cons [k v])
-        (reduce #(assoc-some %1 (first %2) (second %2)) x))))
 
 
 (defn integrater-dispatch
