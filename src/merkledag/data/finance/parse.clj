@@ -53,6 +53,14 @@
     obj))
 
 
+(defn- join-field
+  [obj field delimiter]
+  (let [v (get obj field)]
+    (if (sequential? v)
+      (assoc obj field (str/join delimiter v))
+      obj)))
+
+
 (defn- assoc-some
   ([x k v]
    (if (some? v)
@@ -99,7 +107,7 @@
 
 (defn- collect-set
   [k]
-  (comp set (collect-all k)))
+  (comp not-empty set (collect-all k)))
 
 
 (defn- collect-map
@@ -257,10 +265,7 @@
             :finance.transaction/entries (collect-all :Posting)
             ::meta                       (collect-map :MetaEntry)}
            children)
-         (as-> data
-           (if (:description data)
-             (update data :description (partial str/join "\n"))
-             data))
+         (join-field :description "\n")
          ; TODO: pull UUID metadata out
          (update-time :time/at ::date)))})
 
@@ -295,6 +300,7 @@
                :finance.posting/invoice  (collect-all :LineItem)}
               children)
             (update-time :time/at ::date)
+            (join-field :description "\n")
             (as-> posting
               (cond-> posting
                 (and (or (nil? (first (:form amount)))
