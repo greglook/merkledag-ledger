@@ -4,11 +4,12 @@
     [blocks.core :as block]
     [clj-time.core :as time]
     [merkledag.core :as merkle]
-    [merkledag.data.finance.quantity]
     [merkledag.link :as link])
   (:import
-    merkledag.data.finance.quantity.Quantity))
+    merkledag.data.finance.Quantity))
 
+
+;; ## Data Root
 
 (defn ->finance-data
   [graph root]

@@ -8,7 +8,7 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [instaparse.core :as parse]
-    [merkledag.data.finance.quantity :as quantity]))
+    [merkledag.data.finance :as fin]))
 
 
 (def ledger-parser
@@ -169,9 +169,9 @@
          (and (= "0" v1) (nil? v2))
            nil
          (and (number? v1) (symbol? v2))
-           (quantity/->Quantity v1 v2)
+           (fin/->Quantity v1 v2)
          (and (symbol? v1) (number? v2))
-           (quantity/->Quantity v2 v1)
+           (fin/->Quantity v2 v1)
          :else
            (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
                            {:form children}))))
