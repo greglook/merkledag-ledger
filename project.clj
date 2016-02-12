@@ -12,7 +12,7 @@
    [mvxcvi/blocks "0.5.0"]
    [mvxcvi/merkledag "0.2.0-SNAPSHOT"]
    [mvxcvi/puget "1.0.0"]
-   [org.clojure/clojure "1.7.0"]
+   [org.clojure/clojure "1.8.0"]
    [prismatic/schema "1.0.3"]]
 
   :whidbey
