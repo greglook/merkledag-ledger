@@ -14,10 +14,10 @@
     [instaparse.core :as insta]
     (merkledag
       [core :as merkle])
+    [merkledag.data.finance]
     (merkledag.data.finance
       [parse :as parse]
       [print :as print]
-      [quantity :as quantity]
       [schema :as schema])
     [puget.printer :as puget]
     [schema.core :as s]))
@@ -30,7 +30,7 @@
     {:print-color true
      :print-handlers
      {java.util.UUID (puget/tagged-handler 'uuid str)
-      merkledag.data.finance.quantity.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+      merkledag.data.finance.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
       org.joda.time.DateTime (puget/tagged-handler 'inst str)
       org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
       org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))
