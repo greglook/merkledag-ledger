@@ -173,3 +173,20 @@
   []
   (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
   :reloaded)
+
+
+(defn tree-paths
+  "Returns a sequence of fully-qualified paths built from the given tree and
+  prefix. The tree may either be a direct string path or a vector with a prefix
+  in the first element and child trees as the remaining elements."
+  ([tree]
+   (tree-paths nil tree))
+  ([prefix tree]
+   (let [prefix (when prefix
+                  (if (str/ends-with? prefix "/")
+                    prefix
+                    (str prefix "/")))]
+     (if (string? tree)
+       [(str prefix tree)]
+       (let [[path & children] tree]
+         (mapcat (partial tree-paths (str prefix path)) children))))))
