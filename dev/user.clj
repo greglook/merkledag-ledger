@@ -27,7 +27,8 @@
   [x]
   (puget/pprint
     x
-    {:print-color true
+    {:width 120
+     :print-color true
      :print-handlers
      {java.util.UUID (puget/tagged-handler 'uuid str)
       merkledag.data.finance.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
