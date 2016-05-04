@@ -2,17 +2,17 @@
   "Schema definitions for a full financial system structure.
 
   ```
-  /finances/ -> FinanceRoot
+  /<ref-name>/ -> FinanceRoot
     commodities/ -> CommodityData
-      USD -> CommodityDefinition
-      AMZN
+      <commodity-symbol> -> CommodityDefinition
       ...
     prices/ -> PriceData
-      VFIFX/
-        2015 -> PriceHistory
+      <commodity-symbol>/
+        <year> -> PriceHistory
+        ...
       ...
     books/
-      personal/ -> Books
+      <book-name>/ -> Books
         accounts/
           assets/... -> AccountDefinition
           liabilities/...
@@ -20,7 +20,7 @@
           expenses/...
           ...
         ledger/ -> LedgerData
-          2015/10/08/ -> LedgerHistory
+          <year>/<month>/<day>/ -> LedgerHistory
             tx-01/ -> Transaction
               posting-01/ -> Posting
                 invoice/ -> Invoice
@@ -32,12 +32,24 @@
               ...
             tx-02/...
             ...
-          2016/...
-      joint/
+          <year>/...
+      <book-name>/
         accounts/...
         ledger/...
       ...
-  ```"
+  ```
+
+  Some example paths:
+
+  ```
+  /commodities/USD
+  /prices/AMZN/2014
+  /books/mine/accounts/assets/cash/bank/savings
+  /books/house/accounts/income/rent/monthly
+  /books/joint/ledger/2011/03/17/tx-04
+  /books/joint/ledger/2013/10/01/tx-01/posting-02/invoice/image
+  ```
+  "
   (:require
     [merkledag.link :as link]
     [schema.core :as s :refer [defschema]])
