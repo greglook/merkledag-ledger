@@ -9,8 +9,9 @@
   :dependencies
   [[clj-time "0.11.0"]
    [instaparse "1.4.1"]
-   [mvxcvi/blocks "0.5.0"]
+   [mvxcvi/blocks "0.7.0"]
    [mvxcvi/merkledag "0.2.0-SNAPSHOT"]
+   [mvxcvi/multihash "2.0.0"]
    [mvxcvi/puget "1.0.0"]
    [org.clojure/clojure "1.8.0"]
    [prismatic/schema "1.0.3"]]

@@ -3,18 +3,9 @@
   (:require
     [blocks.core :as block]
     [clj-time.core :as time]
-    [merkledag.core :as merkle]
-    [merkledag.link :as link])
+    [merkledag.core :as merkle])
   (:import
     merkledag.data.finance.Quantity))
-
-
-;; ## Data Root
-
-(defn ->finance-data
-  [graph root]
-  {:graph graph
-   :root (atom root)})
 
 
 (defn year-seek
@@ -31,13 +22,13 @@
 
   The node is expected to have a set of links named by year, pointing to a node
   with a vector of elements sorted ascending by time (earliest first)."
-  [history opts]
+  [repo history opts]
   (let [{:keys [time-key marker]} opts
         reverse? (:reverse opts)]
     (when (or (and marker (nil? time-key))
               (and time-key (nil? marker)))
       (throw (IllegalArgumentException.
-               "The time-key and marker options must both be set.")))
+               "The time-key and marker options must be set together.")))
     (-> (:links history)
         (->>
           (filter #(re-matches #"\d+" (:name %)))
@@ -86,7 +77,7 @@
   (let [entry (-> (if (instance? Quantity entry)
                     {:finance.price/value entry}
                     entry)
-                  (assoc entry
+                  (assoc
                     :data/type :finance/price
                     :finance.price/commodity commodity)
                   (as-> entry'
@@ -110,13 +101,10 @@
         (fn [price-node]
           (if price-node
             (merkle/node*
-              (:format graph)
+              (:codec repo)
               (:links price-node)
               (vec (sort-by :time/at (conj (:data price-node) entry))))
-            (merkle/node*
-              (:format graph)
-              nil
-              [entry])))))))
+            (merkle/node* (:codec graph) [entry])))))))
 
 
 (defn validate
