@@ -3,6 +3,8 @@
 
   ```
   /<ref-name>/ -> FinanceRoot
+    inputs/ -> DataQueue
+      ...
     commodities/ -> CommodityData
       <commodity-symbol> -> CommodityDefinition
       ...
