@@ -276,17 +276,11 @@
    {:db/valueType :db.type/ref
     :db/doc "the commodity the price is measuring"}
 
-   :finance.price/time
-   {;:db/valueType :db.type/instant
-    :db/doc "point in time which the price was observed"}
+   ; uses :time/at
 
    :finance.price/value
-   {;:db/valueType :db.type/bigdec
-    :db/doc "amount of the base commodity a unit of this commodity costs"}
-
-   :finance.price/base
-   {:db/valueType :db.type/ref
-    :db/doc "commodity the cost is being measured in"}})
+   {;:db/valueType Quantity
+    :db/doc "amount of the base commodity a unit of this commodity costs"}})
 
 
 

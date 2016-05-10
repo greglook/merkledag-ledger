@@ -443,24 +443,27 @@
         entity (when db (d/entity db [:finance.commodity/code code]))]
     [(-> entry
          (dissoc :data/sources ::format ::options)
-         (assoc :db/id (:db/id entity -1)
-                :data/ident (gen-ident :finance/commodity)))]))
+         (assoc :db/id (:db/id entity -1))
+         (cond->
+           (nil? (:data/ident entity))
+             (assoc :data/ident (gen-ident :finance/commodity))
+           (and (::format entry) (not (re-seq #"^\d" (::format entry))))
+             (assoc :finance.commodity/currency-symbol (first (::format entry)))))]))
 
 
-#_
-(defmethod integrate-entry :finance/price
-  [data entry]
-  (let [code (:finance.price/commodity entry)
-        year-path [:prices code (str (time/year (:time/at entry)))]
-        prices (or (get-in data year-path)
-                   {:data/type :finance/price-history
-                    :finance.price/commodity code
-                    :finance.price/points []})
-        new-price {:time (ctime/to-date-time (:time/at entry))
-                   :value (:finance.price/value entry)}
-        new-prices (update prices :finance.price/points
-                           #(->> (conj % new-price) (set) (sort-by :time) (vec)))]
-    (assoc-in data year-path new-prices)))
+(defmethod entry-updates :finance/price
+  [db entry]
+  (let [code  (:finance.price/commodity entry)
+        value (:finance.price/value entry)]
+    ; TODO: check that the commodity exists, create if not
+    ; TODO: need to look for existing price for this time/value
+    [{:db/id -1
+      :finance.price/commodity [:finance.commodity/code code]
+      :finance.price/value value
+      :time/at (ctime/to-date-time (:time/at entry))}]))
+
+
+
 
 
 
