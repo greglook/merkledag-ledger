@@ -8,6 +8,7 @@
 
   :dependencies
   [[clj-time "0.11.0"]
+   [datascript "0.15.0"]
    [instaparse "1.4.1"]
    [mvxcvi/blocks "0.7.0"]
    [mvxcvi/merkledag "0.2.0-SNAPSHOT"]

@@ -93,6 +93,43 @@
   (s/constrained s/Keyword #(= ns (namespace %))))
 
 
+;; ## General Attributes
+
+(def general-attrs
+  "Datascript attribute schemas for commodity price points."
+  {:title
+   {;:db/valueType :db.type/string
+    :db/doc "title to give the data value"}
+
+   :description
+   {;:db/valueType :db.type/string
+    :db/doc "human-readable description string"}
+
+   :data/ident
+   {;:db/valueType :db.type/uuid
+    :db/unique :db.unique/value
+    :db/doc "unique identifier for data entities"}
+
+   :data/block
+   {;:db/valueType Multihash
+    :db/doc "multihash identifier for the block the entity is represented by"}
+
+   :data/type
+   {;:db/valueType :db.type/keyword
+    :db/index true
+    :db/doc "keyword identifying the primary entity type"}
+
+   :data/sources
+   {:db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/doc "set of links to source documents the entity is constructed from"}
+
+   :time/at
+   {;:db/valueType :db.type/instant
+    :db/doc "point in time at which the datum occurred"}
+   })
+
+
 
 ;; ## Asset Classes
 
@@ -204,6 +241,17 @@
     (partial every? (fn [[c l]] (= c (:name l))))))
 
 
+(def commodity-attrs
+  "Datascript attribute schemas for commodities."
+  {:finance.commodity/code
+   {;:db/valueType :db.type/string
+    :db/unique :db.unique/identity
+    :db/doc "code string used to identify the commodity"}
+
+   :finance.commodity/currency-symbol
+   {;:db/valueType :db.type/string
+    :db/doc "one-character string to prefix currency amounts with"}})
+
 
 
 ;; ## Prices
@@ -222,6 +270,26 @@
 
 (defschema PriceData
   {CommodityCode (link-to (link-table PriceHistory))})
+
+
+(def price-attrs
+  "Datascript attribute schemas for commodity price points."
+  {:finance.price/commodity
+   {:db/valueType :db.type/ref
+    :db/doc "the commodity the price is measuring"}
+
+   :finance.price/time
+   {;:db/valueType :db.type/instant
+    :db/doc "point in time which the price was observed"}
+
+   :finance.price/value
+   {;:db/valueType :db.type/bigdec
+    :db/doc "amount of the base commodity a unit of this commodity costs"}
+
+   :finance.price/base
+   {:db/valueType :db.type/ref
+    :db/doc "commodity the cost is being measured in"}})
+
 
 
 
