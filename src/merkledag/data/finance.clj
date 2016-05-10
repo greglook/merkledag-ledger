@@ -1,6 +1,7 @@
 (ns merkledag.data.finance
   "General utilities for working with the merkledag finance system."
   (:require
+    [clojure.string :as str]
     [datascript.core :as d]
     [merkledag.data.finance.schema :as mdfs]
     [merkledag.data.finance.types :as types]
@@ -53,71 +54,88 @@
                       {:id id}))))
 
 
+; TODO: move to parse ns
 
 ;; ## Data Integration
 
+(def ^:dynamic *book-name*
+  "String naming the current set of books being parsed."
+  nil)
+
+
+(defn gen-ident
+  "Generates a unique identifier based on the given `:data/type` keyword."
+  [kw]
+  (let [ident-size 24
+        ident-hex (let [bs (byte-array ident-size)]
+                    (.nextBytes (java.security.SecureRandom.) bs)
+                    (str/join (map (partial format "%02X") bs)))]
+    (str/join "/" [(namespace kw) (name kw) ident-hex])))
+
+
+(defn entry-dispatch
+  "Selects an integration dispatch value based on the argument type."
+  [db entry]
+  (if (vector? entry)
+    (first entry)
+    (:data/type entry)))
+
+
+(defmulti entry-updates
+  "Generates and returns a sequence of datums which can be transacted onto the
+  database to integrate the given entry."
+  #'entry-dispatch)
+
+
+(defmethod entry-updates :default
+  [db entry]
+  (println "Ignoring unsupported entry" (entry-dispatch db entry))
+  nil)
+
+
+(defmethod entry-updates :CommentHeader
+  [db entry]
+  ; Ignored
+  nil)
+
+
+(defmethod entry-updates :CommentBlock
+  [db entry]
+  ; Ignored
+  nil)
+
+
+(defmethod entry-updates :finance/commodity
+  [db entry]
+  (let [code (:finance.commodity/code entry)
+        entity (d/entity db [:finance.commodity/code code])]
+    [(-> entry
+         (dissoc :merkledag.data.finance.parse/format
+                 :merkledag.data.finance.parse/options
+                 :data/sources)
+         (assoc :db/id (:db/id entity -1)
+                :data/ident (or (:data/ident entity)
+                                (gen-ident :finance/commodity))))]))
+
+
+#_
+(defmethod integrate-entry :finance/price
+  [data entry]
+  (let [code (:finance.price/commodity entry)
+        year-path [:prices code (str (time/year (:time/at entry)))]
+        prices (or (get-in data year-path)
+                   {:data/type :finance/price-history
+                    :finance.price/commodity code
+                    :finance.price/points []})
+        new-price {:time (ctime/to-date-time (:time/at entry))
+                   :value (:finance.price/value entry)}
+        new-prices (update prices :finance.price/points
+                           #(->> (conj % new-price) (set) (sort-by :time) (vec)))]
+    (assoc-in data year-path new-prices)))
+
+
+
 (comment
-  (def ^:dynamic *book-name*
-    "String naming the current set of books being parsed."
-    nil)
-
-
-  (defn integrater-dispatch
-    "Selects an integration dispatch value based on the argument type."
-    [_ entry]
-    (if (vector? entry)
-      (first entry)
-      (:data/type entry)))
-
-
-  (defmulti integrate-entry
-    "Integrates the given entry into a data system."
-    #'integrater-dispatch)
-
-
-  (defmethod integrate-entry :default
-    [data entry]
-    (println "Ignoring unsupported entry" (integrater-dispatch data entry))
-    data)
-
-
-  (defmethod integrate-entry :CommentHeader
-    [data entry]
-    ; Ignored
-    data)
-
-
-  (defmethod integrate-entry :CommentBlock
-    [data entry]
-    ; Ignored
-    data)
-
-
-  (defmethod integrate-entry :finance/commodity
-    [data entry]
-    (let [code (:finance.commodity/code entry)
-          current (get-in data [:commodities code])
-          new-data (merge current (dissoc entry ::format ::options))]
-      (if (= current new-data)
-        data
-        (assoc-in data [:commodities code] new-data))))
-
-
-  (defmethod integrate-entry :finance/price
-    [data entry]
-    (let [code (:finance.price/commodity entry)
-          year-path [:prices code (str (time/year (:time/at entry)))]
-          prices (or (get-in data year-path)
-                     {:data/type :finance/price-history
-                      :finance.price/commodity code
-                      :finance.price/points []})
-          new-price {:time (ctime/to-date-time (:time/at entry))
-                     :value (:finance.price/value entry)}
-          new-prices (update prices :finance.price/points
-                             #(->> (conj % new-price) (set) (sort-by :time) (vec)))]
-      (assoc-in data year-path new-prices)))
-
-
   (defn get-account
     "Looks up an account by path, starting from the given set of accounts which
     are children of the current node."

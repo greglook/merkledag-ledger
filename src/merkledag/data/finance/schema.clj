@@ -106,7 +106,7 @@
     :db/doc "human-readable description string"}
 
    :data/ident
-   {;:db/valueType :db.type/uuid
+   {;:db/valueType :db.type/string
     :db/unique :db.unique/value
     :db/doc "unique identifier for data entities"}
 
