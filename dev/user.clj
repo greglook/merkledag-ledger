@@ -96,7 +96,8 @@
 
            ; Try interpreting the parse
            :else
-             (let [interpreted (parse/interpret-parse (first parses))]
+             (let [interpreted (parse/interpret-parse (first parses))
+                   entry (first interpreted)]
                ; If showing, explicitly print conversion:
                (when show?
                  (println "Parsed:")
@@ -108,11 +109,15 @@
                                      {:finance/account schema/AccountDefinition
                                       :finance/commodity schema/CommodityDefinition
                                       :finance/transaction schema/Transaction}
-                                     (get (:data/type (first interpreted)))
-                                     (s/check (first interpreted)))]
+                                     (get (:data/type entry))
+                                     (s/check entry))]
                    (println)
                    (println "Validation errors:")
                    (cprint errors))
+                 (when-let [tx-updates (parse/entry-updates nil entry)]
+                   (println)
+                   (println "Transaction updates:")
+                   (cprint tx-updates))
                  #_
                  (do (println)
                      (println "Rendered:")
