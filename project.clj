@@ -21,7 +21,7 @@
   {:vertical false
    :cluster-depth 3
    :ignore-ns #{clojure}
-   :show-external true}
+   :show-external false}
 
   :whidbey
   {:tag-types {'org.joda.time.DateTime {'inst str}

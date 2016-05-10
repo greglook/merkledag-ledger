@@ -11,13 +11,13 @@
     [clojure.stacktrace :refer [print-cause-trace]]
     [clojure.string :as str]
     [clojure.tools.namespace.repl :refer [refresh]]
+    [datascript.core :as d]
     [instaparse.core :as insta]
     (merkledag
       [core :as merkle])
-    [merkledag.data.finance]
+    [merkledag.data.finance :as finance]
     (merkledag.data.finance
       [parse :as parse]
-      [print :as print]
       [schema :as schema])
     [puget.printer :as puget]
     [schema.core :as s]))
