@@ -5,7 +5,7 @@
     [clj-time.core :as time]
     [merkledag.core :as merkle])
   (:import
-    merkledag.data.finance.Quantity))
+    merkledag.data.finance.types.Quantity))
 
 
 (defn year-seek

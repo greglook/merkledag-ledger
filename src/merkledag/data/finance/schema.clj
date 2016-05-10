@@ -53,11 +53,12 @@
   ```
   "
   (:require
+    [merkledag.data.finance.types :as types]
     [merkledag.link :as link]
     [schema.core :as s :refer [defschema]])
   (:import
     java.util.UUID
-    merkledag.data.finance.Quantity
+    merkledag.data.finance.types.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
       DateTime

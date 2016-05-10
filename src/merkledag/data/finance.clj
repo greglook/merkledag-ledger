@@ -1,19 +1,17 @@
 (ns merkledag.data.finance
-  "General utilities for working with the merkledag finance system.")
-
-
-;; ## Quantity Type
-
-(defrecord Quantity
-  [value commodity])
-
-
-(defmethod print-method Quantity
-  [quantity writer]
-  (print-method (tagged-literal 'finance/$ [(:value quantity) (:commodity quantity)]) writer))
+  "General utilities for working with the merkledag finance system."
+  (:require
+    [datascript.core :as d]
+    [merkledag.data.finance.schema :as mdfs]
+    [merkledag.data.finance.types :as types]
+    [multihash.core :as multihash])
+  (:import
+    merkledag.data.finance.types.Quantity
+    multihash.core.Multihash))
 
 
 (def data-types
-  {'finance/$ {:description "financial quantity"
-               :reader #(->Quantity (first %) (second %))
-               :writers {Quantity (juxt :value :commodity)}}})
+  {types/quantity-tag
+   {:description "financial quantity"
+    :reader types/form->quantity
+    :writers {Quantity types/quantity->form}}})
