@@ -16,6 +16,12 @@
    [org.clojure/clojure "1.8.0"]
    [prismatic/schema "1.0.3"]]
 
+  :hiera
+  {:vertical false
+   :cluster-depth 3
+   :ignore-ns #{clojure}
+   :show-external true}
+
   :whidbey
   {:tag-types {'org.joda.time.DateTime {'inst str}
                'org.joda.time.LocalDate {'time/date str}
