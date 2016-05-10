@@ -445,8 +445,8 @@
          (dissoc :data/sources ::format ::options)
          (assoc :db/id (:db/id entity -1))
          (cond->
-           (nil? (:data/ident entity))
-             (assoc :data/ident (gen-ident :finance/commodity))
+           ;(nil? (:data/ident entity))
+           ;  (assoc :data/ident (gen-ident :finance/commodity))
            (and (::format entry) (not (re-seq #"^\d" (::format entry))))
              (assoc :finance.commodity/currency-symbol (first (::format entry)))))]))
 
@@ -454,13 +454,27 @@
 (defmethod entry-updates :finance/price
   [db entry]
   (let [code  (:finance.price/commodity entry)
-        value (:finance.price/value entry)]
-    ; TODO: check that the commodity exists, create if not
-    ; TODO: need to look for existing price for this time/value
-    [{:db/id -1
-      :finance.price/commodity [:finance.commodity/code code]
+        value (:finance.price/value entry)
+        commodity (when db (d/entity db [:finance.commodity/code code]))
+        inst (ctime/to-date-time (:time/at entry))
+        [extant] (d/q '[:find [?p]
+                        :in $ ?code ?time
+                        :where [?p :data/type :finance/price]
+                               [?p :finance.price/commodity ?c]
+                               [?c :finance.commodity/code ?code]
+                               [?p :time/at ?time]]
+                      db code inst)]
+    [; Check that the commodity exists, otherwise create it.
+     (when-not commodity
+       {:db/id -2
+        :data/type :finance/commodity
+        :finance.commodity/code code})
+     ; Check for an extant price point for this commodity.
+     {:db/id (:db/id extant -1)
+      :data/type :finance/price
+      :finance.price/commodity (:db/id commodity -2)
       :finance.price/value value
-      :time/at (ctime/to-date-time (:time/at entry))}]))
+      :time/at inst}]))
 
 
 

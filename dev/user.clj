@@ -201,10 +201,11 @@
 (defn load-entry!
   [conn entry]
   (let [tx-updates (try
-                     (parse/entry-updates @conn entry)
+                     (seq (remove nil? (parse/entry-updates @conn entry)))
                      (catch Exception ex
                        (throw (ex-info "Error generating tx updates for entry!"
-                                       {:entry entry}))))]
+                                       {:entry entry}
+                                       ex))))]
     (try
       (when tx-updates
         (d/transact! conn tx-updates))
