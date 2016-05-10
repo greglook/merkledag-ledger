@@ -112,10 +112,6 @@
     :db/unique :db.unique/value
     :db/doc "unique identifier for data entities"}
 
-   :data/block
-   {;:db/valueType Multihash
-    :db/doc "multihash identifier for the block the entity is represented by"}
-
    :data/type
    {;:db/valueType :db.type/keyword
     :db/index true
