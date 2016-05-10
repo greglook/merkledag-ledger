@@ -196,3 +196,32 @@
        [(str prefix tree)]
        (let [[path & children] tree]
          (mapcat (partial tree-paths (str prefix path)) children))))))
+
+
+(defn load-entry!
+  [conn entry]
+  (let [tx-updates (try
+                     (parse/entry-updates @conn entry)
+                     (catch Exception ex
+                       (throw (ex-info "Error generating tx updates for entry!"
+                                       {:entry entry}))))]
+    (try
+      (when tx-updates
+        (d/transact! conn tx-updates))
+      conn
+      (catch Exception ex
+        (println "Error loading entry!")
+        (println "Original:")
+        (println (:data/sources entry))
+        (println "Interpreted:")
+        (cprint (dissoc entry :data/sources))
+        (when tx-updates
+          (println)
+          (println "Transaction updates:")
+          (cprint tx-updates))
+        (throw ex)))))
+
+
+(defn load-file!
+  [conn file]
+  (reduce load-entry! conn (parse/parse-file file)))

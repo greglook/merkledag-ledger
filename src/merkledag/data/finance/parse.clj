@@ -532,10 +532,3 @@
         :finance.ledger/transactions
         #(vec (sort-by :time/at (conj % entry))))))
   )
-
-
-(defn integrate-entry
-  [db entry]
-  (let [updates (entry-updates @(:data db) entry)]
-    (d/transact! (:data db) updates)
-    db))
