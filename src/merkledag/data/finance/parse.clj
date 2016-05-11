@@ -422,7 +422,7 @@
   "Selects an integration dispatch value based on the argument type."
   [db entry]
   (if (vector? entry)
-    (keyword (str *ns*) (name (first entry)))
+    (keyword "merkledag.data.finance.parse" (name (first entry)))
     (:data/type entry)))
 
 

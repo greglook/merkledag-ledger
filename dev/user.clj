@@ -208,7 +208,6 @@
     (try
       (when tx-updates
         (d/transact! conn tx-updates))
-      conn
       (catch Exception ex
         (println "Error loading entry!")
         (println "Original:")
@@ -226,4 +225,10 @@
   "Parses, interprets, and loads all entries in `file` into the database
   in`conn`."
   [conn file]
-  (reduce load-entry! conn (parse/parse-file file)))
+  (reduce
+    (fn [stats entry]
+      (let [type-key (@#'parse/entry-dispatch @conn entry)]
+        (load-entry! conn entry)
+        (update stats type-key (fnil inc 0))))
+    (sorted-map)
+    (parse/parse-file file)))
