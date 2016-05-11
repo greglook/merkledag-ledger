@@ -426,37 +426,43 @@
 
 
 (defmethod entry-updates :CommentHeader
-  [db entry]
+  [db header]
   ; Ignored
   nil)
 
 
 (defmethod entry-updates :CommentBlock
-  [db entry]
+  [db comment-block]
+  ; Ignored
+  nil)
+
+
+(defmethod entry-updates :IncludeFile
+  [db include-file]
   ; Ignored
   nil)
 
 
 (defmethod entry-updates :finance/commodity
-  [db entry]
-  (let [code (:finance.commodity/code entry)
+  [db commodity]
+  (let [code (:finance.commodity/code commodity)
         entity (when db (d/entity db [:finance.commodity/code code]))]
-    [(-> entry
+    [(-> commodity
          (dissoc :data/sources ::format ::options)
          (assoc :db/id (:db/id entity -1))
          (cond->
            ;(nil? (:data/ident entity))
            ;  (assoc :data/ident (gen-ident :finance/commodity))
-           (and (::format entry) (not (re-seq #"^\d" (::format entry))))
-             (assoc :finance.commodity/currency-symbol (first (::format entry)))))]))
+           (and (::format commodity) (not (re-seq #"^\d" (::format commodity))))
+             (assoc :finance.commodity/currency-symbol (first (::format commodity)))))]))
 
 
 (defmethod entry-updates :finance/price
-  [db entry]
-  (let [code  (:finance.price/commodity entry)
-        value (:finance.price/value entry)
+  [db price]
+  (let [code  (:finance.price/commodity price)
+        value (:finance.price/value price)
         commodity (when db (d/entity db [:finance.commodity/code code]))
-        inst (ctime/to-date-time (:time/at entry))
+        inst (ctime/to-date-time (:time/at price))
         [extant] (d/q '[:find [?p]
                         :in $ ?code ?time
                         :where [?p :data/type :finance/price]
@@ -475,6 +481,39 @@
       :finance.price/commodity (:db/id commodity -2)
       :finance.price/value value
       :time/at inst}]))
+
+
+(defmethod entry-updates :finance/account
+  [db account]
+  (when-not *book-name*
+    (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
+  ; TODO: implement
+  [])
+
+
+(defmethod entry-updates :finance/transaction
+  [db account]
+  (when-not *book-name*
+    (throw (RuntimeException. "Must bind *book-name* to integrate transactions!")))
+  ; TODO: implement
+  [])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
