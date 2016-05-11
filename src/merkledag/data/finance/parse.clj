@@ -352,12 +352,31 @@
   (try
     (parse/transform ledger-transforms tree)
     (catch Exception e
-      (throw (ex-info (str "Failed to interpret parse tree: " e)
-                      {:tree tree})))))
+      (throw (ex-info (str "Failed to interpret parse tree: " tree)
+                      {:tree tree}
+                      e)))))
 
 
 
 ;; ## File Parsing
+
+(defn- add-source
+  "Adds a `:data/sources` key to associative values in a parsed entry."
+  [source entry]
+  (if (map? entry)
+    (update entry :data/sources (fnil conj #{}) (apply subs source (parse/span entry)))
+    entry))
+
+
+(defn- check-parse!
+  "Returns the value if it is not the result of a parsing failure. Throws an
+  exception on failure values."
+  [value]
+  (when (parse/failure? value)
+    (throw (ex-info (str "Parsing entry failed: " value)
+                    {:failure (parse/get-failure value)})))
+  value)
+
 
 (defn group-lines
   "Takes a sequence of lines and returns a new sequence of groups of lines
@@ -369,25 +388,19 @@
        (map #(str (str/join "\n" %) "\n"))))
 
 
-(defn add-source
-  "Adds a `:data/sources` key to associative values in a parsed entry."
-  [source entry]
-  (if (map? entry)
-    (update entry :data/sources (fnil conj #{}) (apply subs source (parse/span entry)))
-    entry))
-
-
 (defn parse-group
-  "Parses a group of lines from a file."
+  "Parses a group of lines from a file, returning an interpreted ledger entry.
+  Throws an exception if the parser fails."
   [group]
   (->> group
        (ledger-parser)
+       (check-parse!)
        (interpret-parse)
        (map (partial add-source group))))
 
 
 (defn parse-file
-  "Parse a single file, returning a sequence of ledger entries."
+  "Parse a single file, returning a sequence of interpreted ledger entries."
   [file]
   (->> file
        (io/file)
