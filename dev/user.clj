@@ -22,6 +22,8 @@
     [schema.core :as s]))
 
 
+;; ## Debugging Utilities
+
 ; TODO: temporary for debugging
 (def conn (:data (finance/finance-db nil)))
 
@@ -53,6 +55,16 @@
       (format "%.3f ms" elapsed)))
 
 
+(defn reload-grammar!
+  "Recreate the Ledger parser by loading the grammar file."
+  []
+  (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
+  :reloaded)
+
+
+
+;; ## Parsing Tools
+
 (defn find-groups
   "Searches through the groups in a file to find ones which match the given
   pattern. Returns a sequence of indices for the matching groups."
@@ -62,16 +74,17 @@
 
 
 (defn get-group
-  "Get a line group out of a file for testing."
+  "Reads a line group out of a file by index."
   [file index]
   (-> file io/file io/reader line-seq parse/group-lines (nth index)))
 
 
-(defn try-parsing
+(defn debug-parse
   "Attempts to parse the given text using the current parser. Returns true if
-  the text parsed successfully, false on error."
+  the text parsed successfully, false on error. Prints lots of debugging
+  information on failure or if `show?` is truthy."
   ([text]
-   (try-parsing text 0 true))
+   (debug-parse text 0 true))
   ([text index show?]
    (try
      ; If showing this example, explicitly print input
@@ -108,6 +121,7 @@
                  (println)
                  (println "Interpreted:")
                  (cprint interpreted)
+                 #_
                  (when-let [errors (some->
                                      {:finance/account schema/AccountDefinition
                                       :finance/commodity schema/CommodityDefinition
@@ -133,18 +147,6 @@
        false))))
 
 
-(defn inspect-file
-  "Inspects the parsing of a group in the given file. If no index is given, one
-  is selected at random."
-  ([file]
-   (inspect-file file nil))
-  ([file index]
-   (let [groups (-> file io/file io/reader line-seq parse/group-lines)
-         index (or index (rand-int (count groups)))]
-     (binding [parse/*book-name* "test"]
-       (try-parsing (nth groups index) index true)))))
-
-
 (defn test-parser
   "Tests the parser by running it against the line groups in the given file.
   Any extra arguments will explicitly print out the results of parsing the
@@ -168,7 +170,7 @@
 
         ; Parse next entry
         (seq entries)
-          (let [success? (try-parsing (first entries) index (show-entries index))]
+          (let [success? (debug-parse (first entries) index (show-entries index))]
             (recur (rest entries) (inc index) (if success? errors (inc errors))))
 
         ; Parsed everything without hitting error limit
@@ -178,14 +180,24 @@
               (zero? errors))))))
 
 
-(defn reload-grammar!
-  "Recreate the Ledger parser by loading the grammar file."
-  []
-  (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
-  :reloaded)
+(defn inspect-file
+  "Inspects the parsing of a group in the given file. If no index is given, one
+  is selected at random."
+  ([file]
+   (inspect-file file nil))
+  ([file index]
+   (let [groups (-> file io/file io/reader line-seq parse/group-lines)
+         index (or index (rand-int (count groups)))]
+     (binding [parse/*book-name* "test"]
+       (debug-parse (nth groups index) index true)))))
 
+
+
+;; ## Data Integration
 
 (defn load-entry!
+  "Loads the parsed and interpreted entry into the database in `conn`. Throws
+  an exception if generating or transacting the updates fails."
   [conn entry]
   (let [tx-updates (try
                      (seq (remove nil? (parse/entry-updates @conn entry)))
@@ -211,5 +223,7 @@
 
 
 (defn load-file!
+  "Parses, interprets, and loads all entries in `file` into the database
+  in`conn`."
   [conn file]
   (reduce load-entry! conn (parse/parse-file file)))
