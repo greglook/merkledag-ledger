@@ -409,7 +409,7 @@
   "Selects an integration dispatch value based on the argument type."
   [db entry]
   (if (vector? entry)
-    (first entry)
+    (keyword (str *ns*) (name (first entry)))
     (:data/type entry)))
 
 
@@ -425,22 +425,15 @@
   nil)
 
 
-(defmethod entry-updates :CommentHeader
+(defmethod entry-updates ::ignored
   [db header]
   ; Ignored
   nil)
 
 
-(defmethod entry-updates :CommentBlock
-  [db comment-block]
-  ; Ignored
-  nil)
-
-
-(defmethod entry-updates :IncludeFile
-  [db include-file]
-  ; Ignored
-  nil)
+(derive ::CommentHeader ::ignored)
+(derive ::CommentBlock  ::ignored)
+(derive ::IncludeFile   ::ignored)
 
 
 (defmethod entry-updates :finance/commodity
