@@ -13,14 +13,17 @@
     [clojure.tools.namespace.repl :refer [refresh]]
     [datascript.core :as d]
     [instaparse.core :as insta]
-    (merkledag
-      [core :as merkle])
+    [merkledag.core :as merkle]
     [merkledag.data.finance :as finance]
     (merkledag.data.finance
       [parse :as parse]
       [schema :as schema])
     [puget.printer :as puget]
     [schema.core :as s]))
+
+
+; TODO: temporary for debugging
+(def conn (:data (finance/finance-db nil)))
 
 
 (defn cprint
@@ -31,7 +34,7 @@
      :print-color true
      :print-handlers
      {java.util.UUID (puget/tagged-handler 'uuid str)
-      merkledag.data.finance.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+      merkledag.data.finance.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
       org.joda.time.DateTime (puget/tagged-handler 'inst str)
       org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
       org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))
@@ -138,7 +141,8 @@
   ([file index]
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))]
-     (try-parsing (nth groups index) index true))))
+     (binding [parse/*book-name* "test"]
+       (try-parsing (nth groups index) index true)))))
 
 
 (defn test-parser
@@ -179,23 +183,6 @@
   []
   (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
   :reloaded)
-
-
-(defn tree-paths
-  "Returns a sequence of fully-qualified paths built from the given tree and
-  prefix. The tree may either be a direct string path or a vector with a prefix
-  in the first element and child trees as the remaining elements."
-  ([tree]
-   (tree-paths nil tree))
-  ([prefix tree]
-   (let [prefix (when prefix
-                  (if (str/ends-with? prefix "/")
-                    prefix
-                    (str prefix "/")))]
-     (if (string? tree)
-       [(str prefix tree)]
-       (let [[path & children] tree]
-         (mapcat (partial tree-paths (str prefix path)) children))))))
 
 
 (defn load-entry!
