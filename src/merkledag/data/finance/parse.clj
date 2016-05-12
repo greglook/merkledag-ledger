@@ -262,17 +262,20 @@
 (def metadata-transforms
   {:TagName keyword
    :MetaEntry
-     (fn ([k]   [:MetaEntry k true])
-         ([k v] [:MetaEntry k v]))
+     (fn ->meta-entry
+       ([k]   [:MetaEntry k true])
+       ([k v] [:MetaEntry k v]))
 
    :SourceMeta
-     (fn [src line]
+     (fn ->source-meta
+       [src line]
        [:SourceMeta {:source src, :line line}])})
 
 
 (def transaction-transforms
   {:Transaction
-     (fn [date & children]
+     (fn ->transaction
+       [date & children]
        (->
          {:data/type :finance/transaction
           :finance.transaction/date date
@@ -294,11 +297,13 @@
 
 (def posting-transforms
   {:PostingStatus
-     (fn [chr]
+     (fn ->posting-status
+       [chr]
        [:PostingStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
 
    :Posting
-     (fn [status account & children]
+     (fn ->posting
+       [status account & children]
        (let [[status account children] (if (and (vector? status)
                                                 (= :PostingStatus (first status)))
                                          [(second status) account children]
@@ -343,10 +348,13 @@
 
    :LineItemTaxGroup keyword
    :LineItemTaxGroups
-     (fn [& groups] [:LineItemTaxGroups (set groups)])
+     (fn ->tax-groups
+       [& groups]
+       [:LineItemTaxGroups (set groups)])
 
    :LineItem
-     (fn [desc & children]
+     (fn ->line-item
+       [desc & children]
        [:LineItem
         (collect
           {:title desc}
