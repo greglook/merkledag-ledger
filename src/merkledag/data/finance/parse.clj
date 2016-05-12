@@ -303,12 +303,8 @@
 
    :Posting
    (fn ->posting
-     [status-or-account & children]
-     (let [[status account children] (if (and (vector? status-or-account)
-                                              (= :PostingStatus (first status-or-account)))
-                                       [(second status-or-account) (first children) (rest children)]
-                                       [nil status-or-account children])
-           posting-type (case (first account)
+     [account & children]
+     (let [posting-type (case (first account)
                           :RealAccountRef :real
                           :VirtualAccountRef :virtual
                           :BalancedVirtualAccountRef :balanced-virtual)
@@ -317,11 +313,9 @@
                                [(first children) (rest children)])]
        [:Posting
         (->
-          {:data/type :finance/posting
-           :finance.posting/account (second account)}
+          {:data/type :finance.entry/posting
+           :finance.entry/account (second account)}
           (assoc-some
-            :finance.posting/type posting-type
-            :finance.posting/status status
             :finance.posting/amount amount)
           (collect
             {:finance.posting/lot-cost (collect-one :PostingLotCost)
@@ -340,12 +334,14 @@
           (lift-meta :Payee :finance.posting/payee)
           (as-> posting
             (cond-> posting
+              (= posting-type :virtual)
+                (assoc :finance.posting/virtual true)
               (and (or (nil? (first (:form amount)))
                        (zero? (first (:form amount))))
                    (= :balanced-virtual posting-type)
-                   (:balance posting))
-                (-> (assoc :finance.posting/type :balance-check)
-                    (dissoc :amount)))))]))
+                   (:finance.posting/balance posting))
+                (-> (assoc ::type :balance-check)
+                    (dissoc :finance.posting/amount)))))]))
 
    :LineItemTaxGroup keyword
    :LineItemTaxGroups

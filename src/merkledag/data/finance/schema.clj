@@ -430,31 +430,53 @@
 
 ;; ## Postings
 
-;; An account has a _register_, which is the linear sequence of _postings_
-;; applied to it. A posting is usually an amount change, but may also contain
+;; An account has a _register_, which is the linear sequence of _entries_
+;; applied to it. A _posting_ is usually an amount change, but may also contain
 ;; balance checks and general notes. Postings are primarily sorted by timestamp,
 ;; but ones with the same timestamp (usually because of day-level precision) are
 ;; ordered by transaction placement in the history.
 
+(def EntrySchema
+  "General attributes used by financial entries, including account notes,
+  directives, and postings."
+  {:time/at DateTime
+   :finance.entry/account (link-to AccountRoot)
+   (s/optional-key :description) s/Str
+   (s/optional-key :data/sources) #{(link-to s/Any)}
+   (s/optional-key :finance.entry/order-index) s/Num})
+
+
+(defschema AccountNote
+  "General annotation and document linking to accounts."
+  (merge
+    EntrySchema
+    {:data/type (s/eq :finance.entry/note)}))
+
+
+(defschema AccountClosure
+  "Tombstone marker for an account."
+  (merge
+    EntrySchema
+    {:data/type (s/eq :finance.entry/account-closed)}))
+
+
 (defschema Posting
   "Schema for a financial posting to an account."
-  {:data/type (s/eq :finance/posting)
-   :finance.posting/account (link-to AccountRoot)
-   (s/optional-key :description) s/Str
-   (s/optional-key :finance.posting/id) s/Str
-   (s/optional-key :finance.posting/type)
-     (s/enum :real :virtual :balance-check)
-   (s/optional-key :finance.posting/payee) (link-to s/Any)
-   (s/optional-key :finance.posting/amount) Quantity
-   (s/optional-key :finance.posting/price) Quantity
-   (s/optional-key :finance.posting/lot-id) s/Str
-   (s/optional-key :finance.posting/lot-cost) Quantity
-   (s/optional-key :finance.posting/lot-date) LocalDate
-   (s/optional-key :finance.posting/weight) Quantity
-   (s/optional-key :finance.posting/balance) Quantity
-   (s/optional-key :finance.posting/invoice) (link-to Invoice)
-   (s/optional-key :time/at) DateTime
-   (s/optional-key :data/sources) #{(link-to s/Any)}}
+  (merge
+    EntrySchema
+    {:data/type (s/eq :finance.entry/posting)
+     (s/optional-key :finance.posting/id) s/Str
+     (s/optional-key :finance.posting/virtual) s/Bool
+     (s/optional-key :finance.posting/payee) (link-to s/Any)
+     (s/optional-key :finance.posting/amount) Quantity
+     (s/optional-key :finance.posting/price) Quantity
+     (s/optional-key :finance.posting/lot-id) s/Str
+     (s/optional-key :finance.posting/lot-cost) Quantity
+     (s/optional-key :finance.posting/lot-date) LocalDate
+     (s/optional-key :finance.posting/weight) Quantity
+     (s/optional-key :finance.posting/balance) Quantity
+     (s/optional-key :finance.posting/invoice) (link-to Invoice)
+     })
   ; TODO: validations
   ; - amount and price must have different commodities
   ; - weight only makes sense when price is specified
@@ -492,9 +514,7 @@
    :time/at DateTime
    (s/optional-key :description) s/Str
    (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.transaction/id) s/Str
-   (s/optional-key :finance.transaction/status)
-     (s/enum :uncleared :pending :cleared)
+   (s/optional-key :finance.transaction/flag) s/Keyword
    (s/optional-key :finance.transaction/code) s/Str}
   ; TODO: validations
   ; - real posting weights must sum to zero
