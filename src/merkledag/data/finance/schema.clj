@@ -333,6 +333,7 @@
    (s/optional-key :time/at) DateTime})
 
 
+; TODO: no account's path should be a prefix of another
 (defschema AccountDefinition
   "Schema for an object defining the properties of an account."
   {:title s/Str
@@ -363,6 +364,19 @@
 
 (defschema AccountTrees
   #{(link-to AccountGroup)})
+
+
+(def account-attrs
+  "Datascript attribute schemas for account definitions."
+  {:finance.account/path
+   {;:db/valueType [s/Str]
+    :db/unique :db.unique/identity
+    :db/doc "path segments to uniquely identify the account"}
+
+   :finance.account/alias
+   {;:db/valueType :db.type/keyword
+    :db/unique :db.unique/identity
+    :db/doc "keyword alias to refer to the account by"}})
 
 
 

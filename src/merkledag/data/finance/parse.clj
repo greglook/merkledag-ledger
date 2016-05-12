@@ -244,7 +244,7 @@
        (let [data (collect
                     {:data/type :finance/account
                      :title (last path)
-                     ::path path}
+                     :finance.account/path path}
                     {:finance.account/alias (collect-one :AccountAliasDirective)
                      ::assertion            (collect-one :AccountAssertion)
                      :description           (collect-one :AccountNote)}
@@ -486,9 +486,9 @@
         inst (ctime/to-date-time (:time/at price))
         [extant] (d/q '[:find [?p]
                         :in $ ?code ?time
-                        :where [?p :data/type :finance/price]
+                        :where [?c :finance.commodity/code ?code]
                                [?p :finance.price/commodity ?c]
-                               [?c :finance.commodity/code ?code]
+                               [?p :data/type :finance/price]
                                [?p :time/at ?time]]
                       db code inst)]
     [; Check that the commodity exists, otherwise create it.
@@ -508,12 +508,22 @@
   [db account]
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
-  ; TODO: implement
-  [])
+  (let [path (vec (cons *book-name* (:finance.account/path account)))
+        [extant] (d/q '[:find [?a]
+                        :in $ ?books ?path
+                        :where [?a :finance.account/path ?path]
+                               [?a :finance.book/name ?books]
+                               [?a :data/type :finance/account]]
+                      db *book-name* path)]
+    [(-> account
+         (assoc :db/id (or extant -1)
+                :finance.book/name *book-name*
+                :finance.account/path path)
+         (dissoc :data/sources))]))
 
 
 (defmethod entry-updates :finance/transaction
-  [db account]
+  [db transaction]
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to integrate transactions!")))
   ; TODO: implement
