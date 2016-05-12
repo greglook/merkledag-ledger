@@ -32,14 +32,19 @@
 
 ;; ## Parse Helpers
 
+(defn- rand-hex
+  [length]
+  (let [bs (byte-array length)]
+    (.nextBytes (java.security.SecureRandom.) bs)
+    (str/join (map (partial format "%02x") bs))))
+
+
 (defn gen-ident
   "Generates a unique identifier based on the given `:data/type` keyword."
-  [kw]
-  (let [ident-size 24
-        ident-hex (let [bs (byte-array ident-size)]
-                    (.nextBytes (java.security.SecureRandom.) bs)
-                    (str/join (map (partial format "%02x") bs)))]
-    (str/join "/" [(namespace kw) (name kw) ident-hex])))
+  ([kw]
+   (gen-ident kw nil))
+  ([kw hex]
+   (str/join ":" [(namespace kw) (name kw) (or hex (rand-hex 24))])))
 
 
 (defn- parse-time
@@ -70,6 +75,15 @@
     (if (sequential? v)
       (assoc obj field (str/join delimiter v))
       obj)))
+
+
+(defn- lift-meta
+  [obj meta-tag field-key f]
+  (if-let [value (get-in obj [::meta meta-tag])]
+    (-> obj
+        (assoc field-key (f value))
+        (update ::meta dissoc meta-tag))
+    obj))
 
 
 (defn- assoc-some
@@ -265,8 +279,9 @@
      (fn [date & children]
        (->
          {:data/type :finance/transaction
-          :time/at (ctime/to-date-time date)
-          ::date date}
+          :finance.transaction/date date
+          ; TODO: should take into account timezone
+          :time/at (ctime/to-date-time date)}
          (collect
            {:title                       (collect-one :TxMemo)
             :description                 (collect-all :MetaComment)
@@ -277,8 +292,8 @@
             ::meta                       (collect-map :MetaEntry)}
            children)
          (join-field :description "\n")
-         ; TODO: pull UUID metadata out
-         (update-time :time/at ::date)))})
+         (update-time :time/at :finance.transaction/date)
+         (lift-meta :UUID :data/ident (partial gen-ident :finance/transaction))))})
 
 
 (def posting-transforms
