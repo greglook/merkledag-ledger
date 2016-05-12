@@ -67,6 +67,16 @@
       LocalDate)))
 
 
+(defn attrs->schema
+  "Converts a map of attribute definitions into a map schema."
+  [name & attr-maps]
+  (s/named
+    (->> (apply merge attr-maps)
+         (map (fn [[k s]] [(s/optional-key k) s]))
+         (into {}))
+    name))
+
+
 (defn link-to
   "Schema for a merkle link to an object which must objey the given schema.
   Currently, the linked object is **NOT** recursively checked."
@@ -100,32 +110,37 @@
 (def general-attrs
   "Datascript attribute schemas for commodity price points."
   {:title
-   {;:db/valueType :db.type/string
-    :db/doc "title to give the data value"}
+   {:db/doc "title to give the data value"
+    ;:db/valueType :db.type/string
+    :schema s/Str}
 
    :description
-   {;:db/valueType :db.type/string
-    :db/doc "human-readable description string"}
+   {:db/doc "human-readable description string"
+    ;:db/valueType :db.type/string
+    :schema s/Str}
 
    :data/ident
-   {;:db/valueType :db.type/string
+   {:db/doc "unique identifier for data entities"
+    ;:db/valueType :db.type/string
     :db/unique :db.unique/value
-    :db/doc "unique identifier for data entities"}
+    :schema s/Str}
 
    :data/type
-   {;:db/valueType :db.type/keyword
+   {:db/doc "keyword identifying the primary entity type"
+    ;:db/valueType :db.type/keyword
     :db/index true
-    :db/doc "keyword identifying the primary entity type"}
+    :schema s/Keyword}
 
    :data/sources
-   {:db/valueType :db.type/ref
+   {:db/doc "set of links to source documents the entity is constructed from"
+    ;:db/valueType Multihash
     :db/cardinality :db.cardinality/many
-    :db/doc "set of links to source documents the entity is constructed from"}
+    :schema #{MerkleLink}}
 
    :time/at
-   {;:db/valueType :db.type/instant
-    :db/doc "point in time at which the datum occurred"}
-   })
+   {:db/doc "point in time at which the datum occurred"
+    ;:db/valueType :db.type/instant
+    :schema DateTime}})
 
 
 
@@ -242,13 +257,23 @@
 (def commodity-attrs
   "Datascript attribute schemas for commodities."
   {:finance.commodity/code
-   {;:db/valueType :db.type/string
+   {:db/doc "code string used to identify the commodity"
     :db/unique :db.unique/identity
-    :db/doc "code string used to identify the commodity"}
+    :schema CommodityCode}
 
    :finance.commodity/currency-symbol
-   {;:db/valueType :db.type/string
-    :db/doc "one-character string to prefix currency amounts with"}})
+   {:db/doc "one-character string to prefix currency amounts with"
+    :schema (s/constrained s/Str #(= 1 (count %)))}
+
+   :finance.commodity/asset-classes
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    :schema (s/conditional map? AssetClassBreakdown
+                           :else AssetClassKey)}
+
+   :finance.commodity/commodity-classes
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    :schema (s/conditional map? CommoditySectorBreakdown
+                           :else CommoditySectorKey)}})
 
 
 
@@ -375,7 +400,7 @@
 
    :finance.account/alias
    {;:db/valueType :db.type/keyword
-    :db/unique :db.unique/identity
+    :db/index true
     :db/doc "keyword alias to refer to the account by"}})
 
 
@@ -519,6 +544,30 @@
   ; TODO: validations
   ; - real posting weights must sum to zero
   )
+
+
+(def transaction-attrs
+  "Datascript attribute schemas for transactions."
+  {:finance.transaction/entries
+   {:db/doc "references to child postings and balance checks"
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :schema [(link-to Posting)]}
+
+   :finance.transaction/links
+   {:db/doc "string identifiers linking transactions together"
+    :db/cardinality :db.cardinality/many
+    :db/index true
+    :schema #{s/Str}}
+
+   :finance.transaction/date
+   {:db/doc "calendar date the transaction occurred"
+    :schema LocalDate}
+
+   :finance.transaction/flag
+   {:db/doc "optional flag value to apply to postings"}
+   })
+
 
 
 (defschema LedgerHistory
