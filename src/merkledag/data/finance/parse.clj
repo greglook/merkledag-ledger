@@ -186,7 +186,7 @@
    :Percentage
    (fn ->percentage
      [number]
-     [(/ number 100) '%])
+     (/ number 100))
 
    :Quantity
    (fn ->quantity
