@@ -337,6 +337,7 @@
             children)
           (update-time :time/at ::date)
           (join-field :description "\n")
+          (lift-meta :Payee :finance.posting/payee)
           (as-> posting
             (cond-> posting
               (and (or (nil? (first (:form amount)))
