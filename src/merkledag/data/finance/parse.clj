@@ -271,11 +271,7 @@
 
 
 (def transaction-transforms
-  {:TxStatus
-     (fn [chr]
-       [:TxStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
-
-   :Transaction
+  {:Transaction
      (fn [date & children]
        (->
          {:data/type :finance/transaction
@@ -286,7 +282,7 @@
            {:title                       (collect-one :TxMemo)
             :description                 (collect-all :MetaComment)
             :time/at                     (collect-one :TimeMeta)
-            :finance.transaction/status  (collect-one :TxStatus)
+            :finance.posting/status      (collect-one :PostingStatus)
             :finance.transaction/code    (collect-one :TxCode)
             :finance.transaction/entries (collect-all :Posting)
             ::meta                       (collect-map :MetaEntry)}
@@ -297,9 +293,17 @@
 
 
 (def posting-transforms
-  {:Posting
-     (fn [account & children]
-       (let [posting-type (case (first account)
+  {:PostingStatus
+     (fn [chr]
+       [:PostingStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
+
+   :Posting
+     (fn [status account & children]
+       (let [[status account children] (if (and (vector? status)
+                                                (= :PostingStatus (first status)))
+                                         [(second status) account children]
+                                         [nil status (cons account children)])
+             posting-type (case (first account)
                             :RealAccountRef :real
                             :VirtualAccountRef :virtual
                             :BalancedVirtualAccountRef :balanced-virtual)
@@ -311,8 +315,9 @@
             {:data/type :finance/posting
              :finance.posting/account (second account)}
             (assoc-some
-              :finance.posting/amount amount
-              :finance.posting/type posting-type)
+              :finance.posting/type posting-type
+              :finance.posting/status status
+              :finance.posting/amount amount)
             (collect
               {:finance.posting/lot-cost (collect-one :PostingLotCost)
                :finance.posting/lot-date (collect-one :PostingLotDate)

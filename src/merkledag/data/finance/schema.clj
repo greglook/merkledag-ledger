@@ -485,8 +485,10 @@
 (defschema Transaction
   "Schema for an object representing a financial transaction."
   {:title s/Str
+   :data/ident s/Str
    :data/type (s/eq :finance/transaction)
    :finance.transaction/entries [(link-to Posting)]
+   :finance.transaction/date LocalDate
    :time/at DateTime
    (s/optional-key :description) s/Str
    (s/optional-key :data/sources) #{(link-to s/Any)}
