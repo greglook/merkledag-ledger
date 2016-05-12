@@ -78,12 +78,14 @@
 
 
 (defn- lift-meta
-  [obj meta-tag field-key f]
-  (if-let [value (get-in obj [::meta meta-tag])]
-    (-> obj
-        (assoc field-key (f value))
-        (update ::meta dissoc meta-tag))
-    obj))
+  ([obj meta-tag field-key]
+   (lift-meta obj meta-tag field-key identity))
+  ([obj meta-tag field-key f]
+   (if-let [value (get-in obj [::meta meta-tag])]
+     (-> obj
+         (assoc field-key (f value))
+         (update ::meta dissoc meta-tag))
+     obj)))
 
 
 (defn- assoc-some
