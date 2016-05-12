@@ -110,14 +110,16 @@
                (cprint (diff (first parses) (second parses)))
                false)
 
-           ; Try interpreting the parse
-           :else
+         ; Try interpreting the parse
+         :else
+           (do
+             (when show?
+               (println "Parsed:")
+               (cprint (first parses)))
              (let [interpreted (parse/interpret-parse (first parses))
                    entry (first interpreted)]
                ; If showing, explicitly print conversion:
                (when show?
-                 (println "Parsed:")
-                 (cprint (first parses))
                  (println)
                  (println "Interpreted:")
                  (cprint interpreted)
@@ -139,7 +141,7 @@
                  (do (println)
                      (println "Rendered:")
                      (println (print/render-file interpreted))))
-               true)))
+               true))))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
        (when-not show? (println text ""))
