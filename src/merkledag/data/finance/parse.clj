@@ -276,30 +276,28 @@
   {:Transaction
    (fn ->transaction
      [date & children]
-     (let [tx (-> {:data/type :finance/transaction
-                   :finance.transaction/date date
-                   ; TODO: should take into account timezone
-                   :time/at (ctime/to-date-time date)}
-                  (collect
-                    {:title                       (collect-one :TxMemo)
-                     :description                 (collect-all :MetaComment)
-                     :time/at                     (collect-one :TimeMeta)
-                     :finance.posting/status      (collect-one :PostingStatus)
-                     :finance.transaction/code    (collect-one :TxCode)
-                     :finance.transaction/entries (collect-all :Posting)
-                     ::meta                       (collect-map :MetaEntry)}
-                    children)
-                  (join-field :description "\n")
-                  (update-time :time/at :finance.transaction/date)
-                  (lift-meta :UUID :data/ident (partial gen-ident :finance/transaction)))]
-       ; TODO: take :finance.posting/status and apply it to any postings with no status of their own, then remove it from tx
-       ; TODO: check postings, calculate balance, fill in any postings with no amount
-       tx))
+     (-> {:data/type :finance/transaction
+          :finance.transaction/date date
+          ; TODO: should take into account timezone
+          :time/at (ctime/to-date-time date)}
+         (collect
+           {:title                       (collect-one :TxMemo)
+            :description                 (collect-all :MetaComment)
+            :time/at                     (collect-one :TimeMeta)
+            :finance.transaction/flag    (collect-one :TxFlag)
+            :finance.transaction/code    (collect-one :TxCode)
+            :finance.transaction/entries (collect-all :Posting)
+            ::meta                       (collect-map :MetaEntry)}
+           children)
+         (join-field :description "\n")
+         (update-time :time/at :finance.transaction/date)
+         (lift-meta :UUID :data/ident (partial gen-ident :finance/transaction))
+         (lift-meta :link :finance.transaction/links hash-set)))
 
-   :PostingStatus
+   :TxFlag
    (fn ->posting-status
      [chr]
-     [:PostingStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
+     [:TxFlag (case chr "!" :pending, "*" :cleared, :uncleared)])
 
    :Posting
    (fn ->posting

@@ -84,19 +84,19 @@ MetaComment = !( SpecialMetaTag | MetaEntry ) , Text ;
 
 (* Transactions *)
 Transaction = Date ,
-              [ <' '> , PostingStatus ] ,
+              [ <' '> , TxFlag ] ,
               [ <' '> , TxCode ] ,
-              <' '> , !PostingStatus , !TxCode , TxMemo , NL ,
+              <' '> , !TxFlag , !TxCode , TxMemo , NL ,
               TxDetail* ,
               Posting+ ;
 
+TxFlag = '!' | '*' ;
 TxCode = <'('> , #"[^)]+" , <')'> ;
 TxMemo = Text ;
 <TxDetail> = Indent , <'; '> , ( TimeMeta | MetaEntry | MetaComment ) , NL ;
 
 (* Postings *)
 Posting = Indent ,
-          [ <' '> , PostingStatus , <' '> ] ,
           PostingAccount ,
           [ <'  '> ,
             [ <' '*> , Quantity ,
@@ -108,7 +108,6 @@ Posting = Indent ,
           NL ,
           PostingDetail* ;
 
-PostingStatus = '!' | '*' ;
 <PostingAccount> = RealAccountRef | VirtualAccountRef | BalancedVirtualAccountRef ;
 PostingLotCost = <'{'> , Quantity , <'}'> ;
 PostingLotDate = <'['> , Date , <']'> ;
