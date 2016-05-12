@@ -167,66 +167,66 @@
   {:Date ftime/parse-local-date
 
    :DateTime
-     (fn ->date-time
-       [date [_ time tz]]
-       (parse-time date time tz))
+   (fn ->date-time
+     [date [_ time tz]]
+     (parse-time date time tz))
 
    :TimeZone
-     (fn ->time-zone
-       [zone]
-       (case zone
-         "Z" time/utc
-         (time/time-zone-for-id zone)))
+   (fn ->time-zone
+     [zone]
+     (case zone
+       "Z" time/utc
+       (time/time-zone-for-id zone)))
 
    :Number
-     (fn ->number
-       [& digits]
-       (BigDecimal. (str/join digits)))
+   (fn ->number
+     [& digits]
+     (BigDecimal. (str/join digits)))
 
    :Percentage
-     (fn ->percentage
-       [number]
-       [(/ number 100) '%])})
+   (fn ->percentage
+     [number]
+     [(/ number 100) '%])
+
+   :Quantity
+   (fn ->quantity
+     [& [v1 v2 :as children]]
+     (cond
+       (and (= "0" v1) (nil? v2))
+         nil
+       (and (number? v1) (symbol? v2))
+         (types/->Quantity v1 v2)
+       (and (symbol? v1) (number? v2))
+         (types/->Quantity v2 v1)
+       :else
+         (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
+                         {:form children}))))})
 
 
 (def commodity-transforms
   {:CommodityCode
-     (fn ->commodity-code
-       [code]
-       (if (= "$" code) 'USD (symbol code)))
-
-   :Quantity
-     (fn ->quantity
-       [& [v1 v2 :as children]]
-       (cond
-         (and (= "0" v1) (nil? v2))
-           nil
-         (and (number? v1) (symbol? v2))
-           (types/->Quantity v1 v2)
-         (and (symbol? v1) (number? v2))
-           (types/->Quantity v2 v1)
-         :else
-           (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
-                           {:form children}))))
+   (fn ->commodity-code
+     [code]
+     (if (= "$" code) 'USD (symbol code)))
 
    :CommodityDefinition
-     (fn ->commodity
-       [code & children]
-       (collect
-         {:data/type :finance/commodity
-          :finance.commodity/code code}
-         {:title    (collect-one :CommodityNote)
-          ::format  (collect-one :CommodityFormat)
-          ::options (collect-all :CommodityOption)}
-         children))
+   (fn ->commodity
+     [code & children]
+     (collect
+       {:data/type :finance/commodity
+        :finance.commodity/code code}
+       {:title    (collect-one :CommodityNote)
+        ::format  (collect-one :CommodityFormat)
+        ::options (collect-all :CommodityOption)}
+       children))
 
    :CommodityPrice
-     (fn ->commodity-price
-       [date code price]
-       {:data/type :finance/price
-        :time/at date
-        :finance.price/commodity code
-        :finance.price/value price})
+   (fn ->commodity-price
+     [date code price]
+     {:data/type :finance/price
+      :time/at date
+      :finance.price/commodity code
+      :finance.price/value price})
 
    ; Not supported:
    ;:CommodityConversion identity
@@ -239,131 +239,131 @@
    :AccountAlias keyword
 
    :AccountDefinition
-     (fn ->account-definition
-       [path & children]
-       (let [data (collect
-                    {:data/type :finance/account
-                     :title (last path)
-                     :finance.account/path path}
-                    {:finance.account/alias (collect-one :AccountAliasDirective)
-                     ::assertion            (collect-one :AccountAssertion)
-                     :description           (collect-one :AccountNote)}
-                    children)
-             assertion (::assertion data)]
-         (dissoc
-           (if-let [match (and assertion (re-find #"commodity == \"(\S+)\""
-                                                  assertion))]
-             (assoc data :finance.account/allowed-commodities
-                    #{((commodity-transforms :CommodityCode) (second match))})
-             data)
-           ::assertion)))})
+   (fn ->account-definition
+     [path & children]
+     (let [data (collect
+                  {:data/type :finance/account
+                   :title (last path)
+                   :finance.account/path path}
+                  {:finance.account/alias (collect-one :AccountAliasDirective)
+                   ::assertion            (collect-one :AccountAssertion)
+                   :description           (collect-one :AccountNote)}
+                  children)
+           assertion (::assertion data)]
+       (dissoc
+         (if-let [match (and assertion (re-find #"commodity == \"(\S+)\""
+                                                assertion))]
+           (assoc data :finance.account/allowed-commodities
+                  #{((commodity-transforms :CommodityCode) (second match))})
+           data)
+         ::assertion)))})
 
 
 (def metadata-transforms
   {:TagName keyword
    :MetaEntry
-     (fn ->meta-entry
-       ([k]   [:MetaEntry k true])
-       ([k v] [:MetaEntry k v]))
+   (fn ->meta-entry
+     ([k]   [:MetaEntry k true])
+     ([k v] [:MetaEntry k v]))
 
    :SourceMeta
-     (fn ->source-meta
-       [src line]
-       [:SourceMeta {:source src, :line line}])})
+   (fn ->source-meta
+     [src line]
+     [:SourceMeta {:source src, :line line}])})
 
 
 (def transaction-transforms
   {:Transaction
-     (fn ->transaction
-       [date & children]
-       (->
-         {:data/type :finance/transaction
-          :finance.transaction/date date
-          ; TODO: should take into account timezone
-          :time/at (ctime/to-date-time date)}
-         (collect
-           {:title                       (collect-one :TxMemo)
-            :description                 (collect-all :MetaComment)
-            :time/at                     (collect-one :TimeMeta)
-            :finance.posting/status      (collect-one :PostingStatus)
-            :finance.transaction/code    (collect-one :TxCode)
-            :finance.transaction/entries (collect-all :Posting)
-            ::meta                       (collect-map :MetaEntry)}
-           children)
-         (join-field :description "\n")
-         (update-time :time/at :finance.transaction/date)
-         (lift-meta :UUID :data/ident (partial gen-ident :finance/transaction))))})
+   (fn ->transaction
+     [date & children]
+     (let [tx (-> {:data/type :finance/transaction
+                   :finance.transaction/date date
+                   ; TODO: should take into account timezone
+                   :time/at (ctime/to-date-time date)}
+                  (collect
+                    {:title                       (collect-one :TxMemo)
+                     :description                 (collect-all :MetaComment)
+                     :time/at                     (collect-one :TimeMeta)
+                     :finance.posting/status      (collect-one :PostingStatus)
+                     :finance.transaction/code    (collect-one :TxCode)
+                     :finance.transaction/entries (collect-all :Posting)
+                     ::meta                       (collect-map :MetaEntry)}
+                    children)
+                  (join-field :description "\n")
+                  (update-time :time/at :finance.transaction/date)
+                  (lift-meta :UUID :data/ident (partial gen-ident :finance/transaction)))]
+       ; TODO: take :finance.posting/status and apply it to any postings with no status of their own, then remove it from tx
+       ; TODO: check postings, calculate balance, fill in any postings with no amount
+       tx))
 
-
-(def posting-transforms
-  {:PostingStatus
-     (fn ->posting-status
-       [chr]
-       [:PostingStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
+   :PostingStatus
+   (fn ->posting-status
+     [chr]
+     [:PostingStatus (case chr "!" :pending, "*" :cleared, :uncleared)])
 
    :Posting
-     (fn ->posting
-       [status account & children]
-       (let [[status account children] (if (and (vector? status)
-                                                (= :PostingStatus (first status)))
-                                         [(second status) account children]
-                                         [nil status (cons account children)])
-             posting-type (case (first account)
-                            :RealAccountRef :real
-                            :VirtualAccountRef :virtual
-                            :BalancedVirtualAccountRef :balanced-virtual)
-             [amount children] (if (vector? (first children))
-                                 [nil children]
-                                 [(first children) (rest children)])]
-         [:Posting
-          (->
-            {:data/type :finance/posting
-             :finance.posting/account (second account)}
-            (assoc-some
-              :finance.posting/type posting-type
-              :finance.posting/status status
-              :finance.posting/amount amount)
-            (collect
-              {:finance.posting/lot-cost (collect-one :PostingLotCost)
-               :finance.posting/lot-date (collect-one :PostingLotDate)
-               :finance.posting/price    (collect-one :PostingPrice)
-               :finance.posting/balance  (collect-one :PostingBalance)
-               ::date                    (collect-one :PostingDate)
-               :time/at                  (collect-one :TimeMeta)
-               :data/sources             (collect-set :SourceMeta)
-               ::meta                    (collect-map :MetaEntry)
-               :description              (collect-all :MetaComment)
-               :finance.posting/invoice  (collect-all :LineItem)}
-              children)
-            (update-time :time/at ::date)
-            (join-field :description "\n")
-            (as-> posting
-              (cond-> posting
-                (and (or (nil? (first (:form amount)))
-                         (zero? (first (:form amount))))
-                     (= :balanced-virtual posting-type)
-                     (:balance posting))
-                  (-> (assoc :finance.posting/type :balance-check)
-                      (dissoc :amount)))))]))
+   (fn ->posting
+     [status-or-account & children]
+     (let [[status account children] (if (and (vector? status-or-account)
+                                              (= :PostingStatus (first status-or-account)))
+                                       [(second status-or-account) (first children) (rest children)]
+                                       [nil status-or-account children])
+           posting-type (case (first account)
+                          :RealAccountRef :real
+                          :VirtualAccountRef :virtual
+                          :BalancedVirtualAccountRef :balanced-virtual)
+           [amount children] (if (vector? (first children))
+                               [nil children]
+                               [(first children) (rest children)])]
+       [:Posting
+        (->
+          {:data/type :finance/posting
+           :finance.posting/account (second account)}
+          (assoc-some
+            :finance.posting/type posting-type
+            :finance.posting/status status
+            :finance.posting/amount amount)
+          (collect
+            {:finance.posting/lot-cost (collect-one :PostingLotCost)
+             :finance.posting/lot-date (collect-one :PostingLotDate)
+             :finance.posting/price    (collect-one :PostingPrice)
+             :finance.posting/balance  (collect-one :PostingBalance)
+             ::date                    (collect-one :PostingDate)
+             :time/at                  (collect-one :TimeMeta)
+             :data/sources             (collect-set :SourceMeta)
+             ::meta                    (collect-map :MetaEntry)
+             :description              (collect-all :MetaComment)
+             :finance.posting/invoice  (collect-all :LineItem)}
+            children)
+          (update-time :time/at ::date)
+          (join-field :description "\n")
+          (as-> posting
+            (cond-> posting
+              (and (or (nil? (first (:form amount)))
+                       (zero? (first (:form amount))))
+                   (= :balanced-virtual posting-type)
+                   (:balance posting))
+                (-> (assoc :finance.posting/type :balance-check)
+                    (dissoc :amount)))))]))
 
    :LineItemTaxGroup keyword
    :LineItemTaxGroups
-     (fn ->tax-groups
-       [& groups]
-       [:LineItemTaxGroups (set groups)])
+   (fn ->tax-groups
+     [& groups]
+     [:LineItemTaxGroups (set groups)])
 
    :LineItem
-     (fn ->line-item
-       [desc & children]
-       [:LineItem
-        (collect
-          {:title desc}
-          {:total       (collect-one :LineItemTotal)
-           :amount      (collect-one :LineItemAmount)
-           :price       (collect-one :LineItemPrice)
-           :tax-groups  (collect-one :LineItemTaxGroups)
-           :tax-applied (collect-one :LineItemTaxApplied)}
-          children)])})
+   (fn ->line-item
+     [desc & children]
+     [:LineItem
+      (collect
+        {:title desc}
+        {:total       (collect-one :LineItemTotal)
+         :amount      (collect-one :LineItemAmount)
+         :price       (collect-one :LineItemPrice)
+         :tax-groups  (collect-one :LineItemTaxGroups)
+         :tax-applied (collect-one :LineItemTaxApplied)}
+        children)])})
 
 
 (def ledger-transforms
@@ -371,8 +371,7 @@
          commodity-transforms
          account-transforms
          metadata-transforms
-         transaction-transforms
-         posting-transforms))
+         transaction-transforms))
 
 
 (defn interpret-parse
