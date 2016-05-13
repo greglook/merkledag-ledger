@@ -375,11 +375,6 @@
 
 ;; ## Prices
 
-;; Over time, a commodity's value may change relative to other commodities. In
-;; particular, currencies fluctuate and the values of investments grow and
-;; shrink. The conversion rate between two commodities determines the primary
-;; commodity's _price_ in the second (or 'base') commodity.
-
 (defschema PriceHistory
   {:data/type (s/eq :finance/price-history)
    :finance.price/commodity CommodityCode
@@ -394,10 +389,6 @@
 
 ;; ## Accounts
 
-;; Accounts are named containers for commodities. Accounts are structured into a
-;; hierarchy, forming a tree of accounts. The top-level accounts should be
-;; things like 'Assets', 'Liabilities', 'Income', 'Expenses', etc.
-;;
 ;; GOALS:
 ;; - Be able to update account information and hierarchy WITHOUT needing to
 ;;   update the transaction history.
@@ -594,18 +585,6 @@
 
 ;; ## Transactions
 
-;; Transactions tie together multiple _postings_ into a balanced unit. The
-;; amounts within a transaction MUST sum to zero. Postings are applied in order
-;; within the transaction.
-;;
-;; Transactions are organized into a _journals_ in a time-ordered sequence.
-;; Each journal serves as a namespace for transactions, which can be combined
-;; or viewed individually.
-;;
-;; - time      Time the transaction occurred.
-;; - entries   Set of entries grouped into this transaction.
-;; - state     Whether the transaction has cleared or is still pending.
-
 (defschema Transaction
   "Schema for an object representing a financial transaction."
   {:title s/Str
@@ -621,40 +600,3 @@
   ; TODO: validations
   ; - real posting weights must sum to zero
   )
-
-
-(defschema LedgerHistory
-  {:data/type (s/eq :finance/ledger)
-   :finance.ledger/transactions [(link-to Transaction)]
-   :time/date LocalDate})
-
-
-(defschema LedgerData
-  (link-table (link-to (link-table (link-to (link-table LedgerHistory))))))
-
-
-
-;; ## System Layout
-
-;; The financial system is laid out as a tree of data from a single root. The
-;; system allows for tracking multiple independent _ledgers_ each of which has
-;; a balanced tree of accounts which obey the accounting equation.
-;;
-;; Within each ledger, a common set of accounts is used across one or more
-;; _journals_, which contain a sequence of _transactions_. Each transaction
-;; contains a balanced set of _postings_ which modify account balances.
-;;
-;; All ledgers in the system share a common set of commodity definitions and
-;; prices.
-;;
-;; This node should probably be a commit to track the history of updates.
-
-(defschema Books
-  {:accounts (link-to "accounts" AccountTrees)
-   :ledger (link-to "ledger" LedgerData)})
-
-
-(defschema FinanceRoot
-  {:commodities (link-to "commodities" CommodityData)
-   :prices (link-to "prices" PriceData)
-   :books (link-to "books" {s/Str (link-to Books)})})
