@@ -67,6 +67,159 @@
       LocalDate)))
 
 
+;; ## Attribute Definitions
+
+(def general-attrs
+  "Definitions for generally-useful attributes."
+  {:title
+   {:db/doc "title to give the data value"
+    :schema s/Str}
+
+   :description
+   {:db/doc "human-readable description string"
+    :schema s/Str}
+
+   :data/ident
+   {:db/doc "unique identifier for data entities"
+    :db/unique :db.unique/value
+    :schema s/Str}
+
+   :data/type
+   {:db/doc "keyword identifying the primary entity type"
+    :db/index true
+    :schema s/Keyword}
+
+   :data/sources
+   {:db/doc "set of links to source documents the entity is constructed from"
+    :db/cardinality :db.cardinality/many
+    :schema #{MerkleLink}}})
+
+
+(def time-attrs
+  "Definitions for time-related attributes."
+   {:time/at
+    {:db/doc "point in time at which the datum occurred"
+     :schema DateTime}
+
+    :time/interval
+    {:db/doc "interval in time the data occurred over"
+     :schema org.joda.time.Interval}})
+
+
+(def commodity-attrs
+  "Attribute schemas for commodities."
+  {:finance.commodity/code
+   {:db/doc "code symbol used to identify the commodity"
+    :db/unique :db.unique/identity
+    :schema s/Symbol} ; TODO: should use CommodityCode schema
+
+   :finance.commodity/currency-symbol
+   {:db/doc "one-character string to prefix currency amounts with"
+    :schema (s/constrained s/Str #(= 1 (count %)))}
+
+   :finance.commodity/asset-classes
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    #_ :schema #_ (s/conditional map? AssetClassBreakdown
+                           :else AssetClassKey)}
+
+   :finance.commodity/commodity-classes
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    #_ :schema #_ (s/conditional map? CommoditySectorBreakdown
+                           :else CommoditySectorKey)}})
+
+
+(def price-attrs
+  "Datascript attribute schemas for commodity price points."
+  {:finance.price/commodity
+   {:db/doc "the commodity the price is measuring"
+    :db/valueType :db.type/ref}
+
+   :finance.price/value
+   {:db/doc "amount of the base commodity a unit of this commodity costs"
+    :schema Quantity}})
+
+
+(def account-attrs
+  "Datascript attribute schemas for account definitions."
+  {:finance.account/book
+   {:db/doc "name of the book the account is part of"
+    :schema s/Str}
+
+   :finance.account/id
+   {:db/doc "link to the account's root node"
+    :db/unique :db.unique/identity
+    }
+
+   :finance.account/path
+   {:db/doc "path segments to uniquely identify the account"
+    :db/unique :db.unique/identity
+    :schema [s/Str]}
+
+   :finance.account/alias
+   {:db/doc "keyword alias to refer to the account by"
+    :db/index true
+    :schema s/Keyword}
+
+   :finance.account/type
+   {:db/doc "keyword identifying the type of account"
+    ;:schema AccountTypeKey
+    }
+
+   :finance.account/external-id
+   {:db/doc "string giving the account's external identifier, such as an account number"
+    :db/unique :db.unique/identity
+    :schema s/Str}
+
+   :finance.account/valid-commodities
+   {:db/doc "set of commodities which are valid for the account to contain"
+    :db/cardinality :db.cardinality/many
+    :schema #{s/Symbol #_CommodityCode}}
+   })
+
+
+(def entry-attrs
+  "Datascript attribute schemas for book entries."
+  {:finance.entry/book
+   {:db/doc "name of the book the entry is part of"
+    :schema s/Str}
+
+   :finance.entry/rank
+   {:db/doc "extra numeric value to determine the ordering of entries with the same timestamp"
+    :schema s/Num}})
+
+
+(def transaction-attrs
+  "Datascript attribute schemas for transactions."
+  {:finance.transaction/entries
+   {:db/doc "references to child postings and balance checks"
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :schema [(link-to Posting)]}
+
+   :finance.transaction/links
+   {:db/doc "string identifiers linking transactions together"
+    :db/cardinality :db.cardinality/many
+    :db/index true
+    :schema #{s/Str}}
+
+   :finance.transaction/flag
+   {:db/doc "optional flag value to apply to postings"
+    :schema s/Keyword}
+   })
+
+
+
+
+
+
+
+
+
+
+
+
+;; ## Old Schema Forms
+
 (defn attrs->schema
   "Converts a map of attribute definitions into a map schema."
   [name & attr-maps]
@@ -105,42 +258,7 @@
   (s/constrained s/Keyword #(= ns (namespace %))))
 
 
-;; ## General Attributes
 
-(def general-attrs
-  "Datascript attribute schemas for commodity price points."
-  {:title
-   {:db/doc "title to give the data value"
-    ;:db/valueType :db.type/string
-    :schema s/Str}
-
-   :description
-   {:db/doc "human-readable description string"
-    ;:db/valueType :db.type/string
-    :schema s/Str}
-
-   :data/ident
-   {:db/doc "unique identifier for data entities"
-    ;:db/valueType :db.type/string
-    :db/unique :db.unique/value
-    :schema s/Str}
-
-   :data/type
-   {:db/doc "keyword identifying the primary entity type"
-    ;:db/valueType :db.type/keyword
-    :db/index true
-    :schema s/Keyword}
-
-   :data/sources
-   {:db/doc "set of links to source documents the entity is constructed from"
-    ;:db/valueType Multihash
-    :db/cardinality :db.cardinality/many
-    :schema #{MerkleLink}}
-
-   :time/at
-   {:db/doc "point in time at which the datum occurred"
-    ;:db/valueType :db.type/instant
-    :schema DateTime}})
 
 
 
@@ -254,28 +372,6 @@
     (partial every? (fn [[c l]] (= c (:name l))))))
 
 
-(def commodity-attrs
-  "Datascript attribute schemas for commodities."
-  {:finance.commodity/code
-   {:db/doc "code string used to identify the commodity"
-    :db/unique :db.unique/identity
-    :schema CommodityCode}
-
-   :finance.commodity/currency-symbol
-   {:db/doc "one-character string to prefix currency amounts with"
-    :schema (s/constrained s/Str #(= 1 (count %)))}
-
-   :finance.commodity/asset-classes
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    :schema (s/conditional map? AssetClassBreakdown
-                           :else AssetClassKey)}
-
-   :finance.commodity/commodity-classes
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    :schema (s/conditional map? CommoditySectorBreakdown
-                           :else CommoditySectorKey)}})
-
-
 
 ;; ## Prices
 
@@ -293,20 +389,6 @@
 
 (defschema PriceData
   {CommodityCode (link-to (link-table PriceHistory))})
-
-
-(def price-attrs
-  "Datascript attribute schemas for commodity price points."
-  {:finance.price/commodity
-   {:db/valueType :db.type/ref
-    :db/doc "the commodity the price is measuring"}
-
-   ; uses :time/at
-
-   :finance.price/value
-   {;:db/valueType Quantity
-    :db/doc "amount of the base commodity a unit of this commodity costs"}})
-
 
 
 
@@ -363,17 +445,17 @@
   "Schema for an object defining the properties of an account."
   {:title s/Str
    :data/type (s/eq :finance/account)
+   :finance.account/book s/Str
    (s/optional-key :description) s/Str
    (s/optional-key :data/sources) #{(link-to s/Any)}
    (s/optional-key :finance.account/id) (link-to AccountRoot)
    (s/optional-key :finance.account/alias) s/Keyword
-   (s/optional-key :finance.account/state) (s/enum :open :closed)
+   ;(s/optional-key :finance.account/state) (s/enum :open :closed)
    (s/optional-key :finance.account/type) AccountTypeKey
    (s/optional-key :finance.account/institution) (link-to s/Any)
    (s/optional-key :finance.account/external-id) s/Str
    (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
-   (s/optional-key :finance.account/interest-rate) s/Num
-   (s/optional-key :finance.account/interest-periods) s/Num})
+   })
 
 
 (defschema AccountGroup
@@ -389,19 +471,6 @@
 
 (defschema AccountTrees
   #{(link-to AccountGroup)})
-
-
-(def account-attrs
-  "Datascript attribute schemas for account definitions."
-  {:finance.account/path
-   {;:db/valueType [s/Str]
-    :db/unique :db.unique/identity
-    :db/doc "path segments to uniquely identify the account"}
-
-   :finance.account/alias
-   {;:db/valueType :db.type/keyword
-    :db/index true
-    :db/doc "keyword alias to refer to the account by"}})
 
 
 
@@ -462,13 +531,13 @@
 ;; ordered by transaction placement in the history.
 
 (def EntrySchema
-  "General attributes used by financial entries, including account notes,
+  "General attributes used by financial book entries, including account notes,
   directives, and postings."
   {:time/at DateTime
    :finance.entry/account (link-to AccountRoot)
    (s/optional-key :description) s/Str
    (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.entry/order-index) s/Num})
+   (s/optional-key :finance.entry/rank) s/Num})
 
 
 (defschema AccountNote
@@ -478,7 +547,14 @@
     {:data/type (s/eq :finance.entry/note)}))
 
 
-(defschema AccountClosure
+(defschema AccountOpened
+  "Opening marker for an account."
+  (merge
+    EntrySchema
+    {:data/type (s/eq :finance.entry/account-opened)}))
+
+
+(defschema AccountClosed
   "Tombstone marker for an account."
   (merge
     EntrySchema
@@ -492,7 +568,8 @@
     {:data/type (s/eq :finance.entry/posting)
      (s/optional-key :finance.posting/id) s/Str
      (s/optional-key :finance.posting/virtual) s/Bool
-     (s/optional-key :finance.posting/payee) (link-to s/Any)
+     (s/optional-key :finance.posting/payee) s/Str
+     ; TODO: review these attrs
      (s/optional-key :finance.posting/amount) Quantity
      (s/optional-key :finance.posting/price) Quantity
      (s/optional-key :finance.posting/lot-id) s/Str
@@ -534,40 +611,16 @@
   {:title s/Str
    :data/ident s/Str
    :data/type (s/eq :finance/transaction)
+   :finance.entry/book s/Str
+   :finance.entry/rank s/Num
    :finance.transaction/entries [(link-to Posting)]
-   :finance.transaction/date LocalDate
    :time/at DateTime
    (s/optional-key :description) s/Str
    (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.transaction/flag) s/Keyword
-   (s/optional-key :finance.transaction/code) s/Str}
+   (s/optional-key :finance.transaction/flag) s/Keyword}
   ; TODO: validations
   ; - real posting weights must sum to zero
   )
-
-
-(def transaction-attrs
-  "Datascript attribute schemas for transactions."
-  {:finance.transaction/entries
-   {:db/doc "references to child postings and balance checks"
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :schema [(link-to Posting)]}
-
-   :finance.transaction/links
-   {:db/doc "string identifiers linking transactions together"
-    :db/cardinality :db.cardinality/many
-    :db/index true
-    :schema #{s/Str}}
-
-   :finance.transaction/date
-   {:db/doc "calendar date the transaction occurred"
-    :schema LocalDate}
-
-   :finance.transaction/flag
-   {:db/doc "optional flag value to apply to postings"}
-   })
-
 
 
 (defschema LedgerHistory
