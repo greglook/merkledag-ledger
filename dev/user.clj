@@ -16,6 +16,7 @@
     [merkledag.core :as merkle]
     [merkledag.data.finance :as finance]
     (merkledag.data.finance
+      [import :as fimport]
       [parse :as parse]
       [schema :as schema])
     [puget.printer :as puget]
@@ -133,7 +134,7 @@
                    (println)
                    (println "Validation errors:")
                    (cprint errors))
-                 (when-let [tx-updates (parse/entry-updates nil entry)]
+                 (when-let [tx-updates (fimport/entry-updates nil entry)]
                    (println)
                    (println "Transaction updates:")
                    (cprint tx-updates))
@@ -190,7 +191,7 @@
   ([file index]
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))]
-     (binding [parse/*book-name* "test"]
+     (binding [fimport/*book-name* "test"]
        (debug-parse (nth groups index) index true)))))
 
 
@@ -202,7 +203,7 @@
   an exception if generating or transacting the updates fails."
   [conn entry]
   (let [tx-updates (try
-                     (seq (remove nil? (parse/entry-updates @conn entry)))
+                     (seq (remove nil? (fimport/entry-updates @conn entry)))
                      (catch Exception ex
                        (throw (ex-info "Error generating tx updates for entry!"
                                        {:entry entry}
@@ -229,7 +230,7 @@
   [conn file & parse-opts]
   (reduce
     (fn [stats entry]
-      (let [type-key (@#'parse/entry-dispatch @conn entry)]
+      (let [type-key (fimport/import-dispatch @conn entry)]
         (load-entry! conn entry)
         (update stats type-key (fnil inc 0))))
     (sorted-map)
