@@ -33,6 +33,12 @@
 
 (defn- parse-time
   [date time zone]
+  (ftime/parse
+    (if zone
+      (ftime/with-zone time-format zone)
+      time-format)
+    (str date "T" time))
+  #_
   (time/to-time-zone
     (ftime/parse
       (if zone
@@ -44,13 +50,14 @@
 
 (defn- update-time
   [obj time-key date-key]
-  (if-let [t (get obj time-key)]
-    (update obj time-key
-      #(if (and (vector? %) (= :Time (first %)))
-         (let [[_ time zone] %]
-           (parse-time (get obj date-key) time zone))
-         %))
-    obj))
+  (let [date (get obj date-key)
+        time (get obj time-key)]
+    (assoc obj
+      time-key
+      (if (and (vector? time) (= :Time (first time)))
+        (let [[_ time-str zone] time]
+          (parse-time date time-str zone))
+        (or time (ctime/to-date-time date))))))
 
 
 (defn- join-field
@@ -286,8 +293,8 @@
                      :finance.transaction/entries
                      (partial mapv #(if (:time/at %) % (assoc % :time/at tx-time)))))
            (dissoc tx :time/at)
-           (if (empty? (:finance.transaction/meta tx))
-             (dissoc tx :finance.transaction/meta)
+           (if (empty? (::meta tx))
+             (dissoc tx ::meta)
              tx))))
 
    :TxFlag
@@ -312,7 +319,7 @@
           (assoc-some
             :finance.posting/amount amount)
           (collect
-            {:finance.posting/lot-cost (collect-one :PostingLotCost)
+            {:finance.posting/cost     (collect-one :PostingLotCost)
              :finance.posting/lot-date (collect-one :PostingLotDate)
              :finance.posting/price    (collect-one :PostingPrice)
              :finance.balance/amount   (collect-one :PostingBalance)
@@ -324,6 +331,7 @@
              :finance.posting/invoice  (collect-all :LineItem)}
             children)
           (update-time :time/at ::date)
+          (dissoc ::date)
           (join-field :description "\n")
           (lift-meta :Payee :finance.posting/payee)
           (as-> posting
@@ -332,6 +340,8 @@
                 (assoc :finance.posting/invoice
                        {:data/type :finance/invoice
                         :finance.invoice/items (vec (:finance.posting/invoice posting))})
+              (empty? (::meta posting))
+                (dissoc ::meta)
               (= posting-type :virtual)
                 (assoc :finance.posting/virtual true)
               (and (or (nil? (first (:form amount)))

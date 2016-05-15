@@ -463,8 +463,6 @@
     :db/valueType :db.type/ref
     :schema AccountRef}
 
-   ; TODO: other metadata
-
    :finance.entry/rank
    {:db/doc "extra numeric value to determine the ordering of entries with the same timestamp"
     :schema s/Num}})
