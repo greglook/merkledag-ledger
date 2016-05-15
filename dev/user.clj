@@ -184,18 +184,17 @@
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
-     (binding [fimport/*book-name* book]
-       (try
-         (let [tx-updates (->> entries
-                               (keep (partial fimport/entry-updates db))
-                               (doall))]
-           (println)
-           (println "Transaction updates:")
-           (cprint tx-updates))
-         (catch Exception e
-           (println)
-           (println "Error constructing transaction updates:")
-           (print-cause-trace e)))))))
+     (try
+       (let [tx-updates (->> entries
+                             (keep (partial fimport/entry-updates db book))
+                             (doall))]
+         (println)
+         (println "Transaction updates:")
+         (cprint tx-updates))
+       (catch Exception e
+         (println)
+         (println "Error constructing transaction updates:")
+         (print-cause-trace e))))))
 
 
 
@@ -204,37 +203,27 @@
 (defn load-entry!
   "Loads the parsed and interpreted entry into the database in `conn`. Throws
   an exception if generating or transacting the updates fails."
-  [conn entry]
-  (let [tx-updates (try
-                     (seq (remove nil? (fimport/entry-updates @conn entry)))
-                     (catch Exception ex
-                       (throw (ex-info "Error generating tx updates for entry!"
-                                       {:entry entry}
-                                       ex))))]
-    (try
-      (when tx-updates
-        (d/transact! conn tx-updates))
-      (catch Exception ex
-        (println "Error loading entry!")
-        (println "Original:")
-        (println (:data/sources entry))
-        (println "Interpreted:")
-        (cprint (dissoc entry :data/sources))
-        (when tx-updates
-          (println)
-          (println "Transaction updates:")
-          (cprint tx-updates))
-        (throw ex)))))
+  [conn book entry]
+  (try
+    (when-let [tx-updates (->> entry
+                               (fimport/entry-updates @conn book)
+                               (remove nil?)
+                               (seq))]
+      (d/transact! conn tx-updates))
+    (catch Exception ex
+      (println "Error loading entry!")
+      (cprint (ex-data ex))
+      (throw ex))))
 
 
 (defn load-file!
   "Parses, interprets, and loads all entries in `file` into the database
   in`conn`."
-  [conn file]
+  [conn book file]
   (reduce
     (fn [stats entry]
-      (let [type-key (fimport/import-dispatch @conn entry)]
-        (load-entry! conn entry)
+      (let [type-key (fimport/import-dispatch @conn book entry)]
+        (load-entry! conn book entry)
         (update stats type-key (fnil inc 0))))
     (sorted-map)
     (parse/parse-file file)))

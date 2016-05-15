@@ -33,19 +33,11 @@
 
 (defn- parse-time
   [date time zone]
-  (ftime/parse
-    (if zone
-      (ftime/with-zone time-format zone)
-      time-format)
-    (str date "T" time))
-  #_
-  (time/to-time-zone
-    (ftime/parse
-      (if zone
+  (-> (if zone
         (ftime/with-zone time-format zone)
         time-format)
-      (str date "T" time))
-    time/utc))
+      (ftime/parse (str date "T" time))
+      #_ (time/to-time-zone time/utc)))
 
 
 (defn- update-time
@@ -209,13 +201,15 @@
    :CommodityDefinition
    (fn ->commodity
      [code & children]
-     (collect
+     (->
        {:data/type :finance/commodity
         :finance.commodity/code code}
-       {:title    (collect-one :CommodityNote)
-        ::format  (collect-one :CommodityFormat)
-        ::options (collect-all :CommodityOption)}
-       children))
+       (collect
+         {:title    (collect-one :CommodityNote)
+          ::format  (collect-one :CommodityFormat)
+          ::options (collect-all :CommodityOption)}
+         children)
+       (dissoc ::format ::options)))
 
    :CommodityPrice
    (fn ->commodity-price

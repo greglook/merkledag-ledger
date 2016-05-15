@@ -448,7 +448,7 @@
     :db/unique :db.unique/identity
     :schema s/Str}
 
-   :finance.account/valid-commodities
+   :finance.account/allowed-commodities
    {:db/doc "set of commodities which are valid for the account to contain"
     :db/cardinality :db.cardinality/many
     :schema #{CommodityCode}}})
@@ -483,6 +483,13 @@
     :schema Quantity}})
 
 
+(defschema AccountNote
+  "General annotation and document linking to accounts."
+  (build-schema :finance.entry/note
+    time-attrs [:time/at]
+    entry-attrs [:finance.entry/account]))
+
+
 (defschema OpenAccount
   "Opening marker for an account."
   (build-schema :finance.entry/open-account
@@ -493,13 +500,6 @@
 (defschema CloseAccount
   "Tombstone marker for an account."
   (build-schema :finance.entry/close-account
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]))
-
-
-(defschema AccountNote
-  "General annotation and document linking to accounts."
-  (build-schema :finance.entry/note
     time-attrs [:time/at]
     entry-attrs [:finance.entry/account]))
 
@@ -580,11 +580,11 @@
 
 (defschema JournalEntry
   (->>
-    {:open-account OpenAccount
+    {:note AccountNote
+     :open-account OpenAccount
      :close-account CloseAccount
      :balance-check BalanceCheck
-     :posting Posting
-     :note AccountNote}
+     :posting Posting}
     (mapcat (fn [[kw schema]]
               [#(= (keyword "finance.entry" (name kw)) (:data/type %)) schema]))
     (apply s/conditional)))

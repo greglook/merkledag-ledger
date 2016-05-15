@@ -7,7 +7,9 @@
       [coerce :as ctime]
       [core :as time])
     [clojure.string :as str]
-    [datascript.core :as d]))
+    [datascript.core :as d]
+    [merkledag.data.finance.schema :as schema]
+    [schema.core :as s]))
 
 
 (defn- rand-hex
@@ -28,14 +30,9 @@
 
 ;; ## Data Integration
 
-(def ^:dynamic *book-name*
-  "String naming the current set of books being imported."
-  nil)
-
-
 (defn import-dispatch
   "Selects an integration dispatch value based on the argument type."
-  [db entry]
+  [db book entry]
   (if (vector? entry)
     (keyword "finance.import" (name (first entry)))
     (:data/type entry)))
@@ -48,7 +45,7 @@
 
 
 (defmethod entry-updates :default
-  [db entry]
+  [db book entry]
   (let [entry-type (import-dispatch db entry)]
     (throw (ex-info (str "Unsupported entry type: " entry-type)
                     {:type entry-type
@@ -56,7 +53,7 @@
 
 
 (defmethod entry-updates ::ignored
-  [db header]
+  [db book header]
   ; Ignored
   nil)
 
@@ -67,7 +64,8 @@
 
 
 (defmethod entry-updates :finance/commodity
-  [db commodity]
+  [db _ commodity]
+  (s/validate schema/CommodityDefinition commodity)
   (let [code (:finance.commodity/code commodity)
         entity (when db (d/entity db [:finance.commodity/code code]))]
     [(-> commodity
@@ -79,7 +77,8 @@
 
 
 (defmethod entry-updates :finance/price
-  [db price]
+  [db _ price]
+  (s/validate schema/CommodityPrice price)
   (let [code  (:finance.price/commodity price)
         value (:finance.price/value price)
         commodity (when db (d/entity db [:finance.commodity/code code]))
@@ -105,49 +104,54 @@
 
 
 (defmethod entry-updates :finance/account
-  [db account]
-  (when-not *book-name*
-    (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
+  [db book account]
+  (when-not book
+    (throw (IllegalArgumentException. "Must provide book name to import accounts!")))
+  (s/validate (dissoc schema/AccountDefinition :finance.account/book) account)
   (let [path (:finance.account/path account)
         [extant] (d/q '[:find [?a]
                         :in $ ?book ?path
                         :where [?a :finance.account/path ?path]
                                [?a :finance.account/book ?book]
                                [?a :data/type :finance/account]]
-                      db *book-name* path)]
+                      db book path)]
     [(assoc account
             :db/id (or extant -1)
-            :finance.account/book *book-name*
-            :finance.account/path path)]))
+            :finance.account/book book)]))
 
 
-(defn- tx-entry-updates
-  [db entry]
-  ; TODO: look up account for this entry (must already exist)
-  ; TODO: generate updates for invoice (if present)
+(defmethod entry-updates ::entry
+  [db book entry]
+  ; TODO: factor this lookup out?
   (let [account-ref (:finance.entry/account entry)
-        [account-id] (if (keyword? account-ref)
-                       (d/q '[:find [?a]
-                              :in $ ?book ?alias
-                              :where [?a :finance.account/book ?book]
-                                     [?a :finance.account/alias ?alias]]
-                            db *book-name* account-ref)
-                       (d/q '[:find [?a]
-                              :in $ ?book ?path
-                              :where [?a :finance.account/book ?book]
-                                     [?a :finance.account/path ?path]]
-                            db *book-name* account-ref))]
+        attr-key (if (keyword? account-ref)
+                   :finance.account/alias
+                   :finance.account/path)
+        query {:find '[[?a]]
+               :in '[$ ?book ?id]
+               :where [['?a :finance.account/book '?book]
+                       ['?a attr-key '?id]]}
+        [account-id] (d/q query db book account-ref)]
     (when-not account-id
       (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
                       {:account account-ref})))
+    (when (:finance.posting/invoice entry)
+      (throw (ex-info "Invoices are not implemented yet!"))) ; FIXME
     ; ...
     []))
 
 
+(derive :finance.entry/note          ::entry)
+(derive :finance.entry/open-account  ::entry)
+(derive :finance.entry/close-account ::entry)
+(derive :finance.entry/balance-check ::entry)
+(derive :finance.entry/posting       ::entry)
+
+
 (defmethod entry-updates :finance/transaction
-  [db transaction]
-  (when-not *book-name*
-    (throw (RuntimeException. "Must bind *book-name* to integrate transactions!")))
+  [db book transaction]
+  (when-not book
+    (throw (IllegalArgumentException. "Must provide book name to import transactions!")))
   ; TODO: generate update specs for entries
   ; TODO: generate tx spec
-  (mapcat (partial tx-entry-updates db) (:finance.transaction/entries transaction)))
+  (mapcat (partial entry-updates db book) (:finance.transaction/entries transaction)))
