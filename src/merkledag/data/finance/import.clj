@@ -108,7 +108,7 @@
   [db account]
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
-  (let [path (vec (cons *book-name* (:finance.account/path account)))
+  (let [path (:finance.account/path account)
         [extant] (d/q '[:find [?a]
                         :in $ ?books ?path
                         :where [?a :finance.account/path ?path]
