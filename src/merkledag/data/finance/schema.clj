@@ -89,6 +89,10 @@
     :db/index true
     :schema s/Keyword}
 
+   :data/tags
+   {:db/doc "map of keyword tags to values"
+    :schema {s/Keyword s/Any}}
+
    :data/sources
    {:db/doc "set of links to source documents the entity is constructed from"
     :db/valueType :db.type/ref

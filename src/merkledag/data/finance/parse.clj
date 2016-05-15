@@ -72,10 +72,14 @@
   ([obj meta-tag field-key]
    (lift-meta obj meta-tag field-key identity))
   ([obj meta-tag field-key f]
-   (if-let [value (get-in obj [::meta meta-tag])]
+   (if-let [value (get-in obj [:data/tags meta-tag])]
      (-> obj
          (assoc field-key (f value))
-         (update ::meta dissoc meta-tag))
+         (update :data/tags dissoc meta-tag)
+         (as-> obj'
+           (if (empty? (:data/tags obj'))
+             (dissoc obj' :data/tags)
+             obj')))
      obj)))
 
 
@@ -276,7 +280,7 @@
             :finance.transaction/flag    (collect-one :TxFlag)
             :finance.transaction/code    (collect-one :TxCode)
             :finance.transaction/entries (collect-all :Posting)
-            ::meta                       (collect-map :MetaEntry)}
+            :data/tags                   (collect-map :MetaEntry)}
            children)
          (join-field :description "\n")
          (update :finance.transaction/entries vec)
@@ -322,7 +326,7 @@
              ::date                    (collect-one :PostingDate)
              :time/at                  (collect-one :TimeMeta)
              :data/sources             (collect-set :SourceMeta)
-             ::meta                    (collect-map :MetaEntry)
+             :data/tags                (collect-map :MetaEntry)
              :description              (collect-all :MetaComment)
              :finance.posting/invoice  (collect-all :LineItem)}
             children)
