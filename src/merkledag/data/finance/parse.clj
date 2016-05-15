@@ -276,11 +276,19 @@
             ::meta                       (collect-map :MetaEntry)}
            children)
          (join-field :description "\n")
+         (update :finance.transaction/entries vec)
          (update-time :time/at :finance.transaction/date)
          (lift-meta :UUID :data/ident (partial str "finance:transaction:"))
          (lift-meta :link :finance.transaction/links hash-set)
-         ; TODO: propagate time information down into postings
-         ))
+         (as-> tx
+           (let [tx-time (:time/at tx)]
+             (update tx
+                     :finance.transaction/entries
+                     (partial mapv #(if (:time/at %) % (assoc % :time/at tx-time)))))
+           (dissoc tx :time/at)
+           (if (empty? (:finance.transaction/meta tx))
+             (dissoc tx :finance.transaction/meta)
+             tx))))
 
    :TxFlag
    (fn ->posting-status
@@ -307,7 +315,7 @@
             {:finance.posting/lot-cost (collect-one :PostingLotCost)
              :finance.posting/lot-date (collect-one :PostingLotDate)
              :finance.posting/price    (collect-one :PostingPrice)
-             :finance.posting/balance  (collect-one :PostingBalance)
+             :finance.balance/amount   (collect-one :PostingBalance)
              ::date                    (collect-one :PostingDate)
              :time/at                  (collect-one :TimeMeta)
              :data/sources             (collect-set :SourceMeta)
@@ -320,13 +328,17 @@
           (lift-meta :Payee :finance.posting/payee)
           (as-> posting
             (cond-> posting
+              (seq (:finance.posting/invoice posting))
+                (assoc :finance.posting/invoice
+                       {:data/type :finance/invoice
+                        :finance.invoice/items (vec (:finance.posting/invoice posting))})
               (= posting-type :virtual)
                 (assoc :finance.posting/virtual true)
               (and (or (nil? (first (:form amount)))
                        (zero? (first (:form amount))))
                    (= :balanced-virtual posting-type)
-                   (:finance.posting/balance posting))
-                (-> (assoc ::type :balance-check)
+                   (:finance.balance/amount posting))
+                (-> (assoc :data/type :finance.entry/balance-check)
                     (dissoc :finance.posting/amount)))))]))
 
    :LineItemTaxGroup keyword
