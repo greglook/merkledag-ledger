@@ -289,13 +289,14 @@
          (lift-meta :link :finance.transaction/links hash-set)
          (as-> tx
            (let [tx-time (:time/at tx)]
-             (update tx
-                     :finance.transaction/entries
-                     (partial mapv #(if (:time/at %) % (assoc % :time/at tx-time)))))
-           (dissoc tx :time/at)
-           (if (empty? (::meta tx))
-             (dissoc tx ::meta)
-             tx))))
+             (-> tx
+                 (update :finance.transaction/entries
+                         (partial mapv #(if (:time/at %) % (assoc % :time/at tx-time))))
+                 (dissoc :time/at)))
+           (assoc tx :finance.transaction/entries
+                  (mapv #(assoc %1 :finance.entry/rank %2)
+                        (:finance.transaction/entries tx)
+                        (range))))))
 
    :TxFlag
    (fn ->posting-status
@@ -339,9 +340,9 @@
               (seq (:finance.posting/invoice posting))
                 (assoc :finance.posting/invoice
                        {:data/type :finance/invoice
-                        :finance.invoice/items (vec (:finance.posting/invoice posting))})
-              (empty? (::meta posting))
-                (dissoc ::meta)
+                        :finance.invoice/items (mapv #(assoc %1 :finance.item/rank %2)
+                                                     (:finance.posting/invoice posting)
+                                                     (range))})
               (= posting-type :virtual)
                 (assoc :finance.posting/virtual true)
               (and (or (nil? (first (:form amount)))
