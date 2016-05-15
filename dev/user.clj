@@ -81,9 +81,9 @@
 
 
 (defn debug-parse
-  "Attempts to parse the given text using the current parser. Returns true if
-  the text parsed successfully, false on error. Prints lots of debugging
-  information on failure or if `show?` is truthy."
+  "Attempts to parse the given text using the current parser. Returns the
+  interpreted data structure if the text parsed successfully, or nil on error.
+  Prints lots of debugging information on failure or if `show?` is truthy."
   ([text]
    (debug-parse text 0 true))
   ([text index show?]
@@ -99,7 +99,7 @@
            (do (printf "\nParsing entry %d failed:\n\n" index)
                (when-not show? (println text ""))
                (cprint (insta/get-failure parses))
-               false)
+               nil)
 
          ; If parsing is ambiguous, print first two and diff
          (< 1 (count parses))
@@ -109,7 +109,7 @@
                (cprint (take 2 parses))
                (println "\nDifferences:")
                (cprint (diff (first parses) (second parses)))
-               false)
+               nil)
 
          ; Try interpreting the parse
          :else
@@ -133,21 +133,13 @@
                                      (s/check entry))]
                    (println)
                    (println "Validation errors:")
-                   (cprint errors))
-                 (when-let [tx-updates (fimport/entry-updates @conn entry)]
-                   (println)
-                   (println "Transaction updates:")
-                   (cprint tx-updates))
-                 #_
-                 (do (println)
-                     (println "Rendered:")
-                     (println (print/render-file interpreted))))
-               true))))
+                   (cprint errors)))
+               interpreted))))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
        (when-not show? (println text ""))
        (print-cause-trace e)
-       false))))
+       nil))))
 
 
 (defn test-parser
@@ -188,11 +180,22 @@
   is selected at random."
   ([file]
    (inspect-file file nil))
-  ([file index & {:keys [book], :or {book "repl"}}]
+  ([file index & {:keys [book db], :or {book "repl", db @conn}}]
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
-         index (or index (rand-int (count groups)))]
+         index (or index (rand-int (count groups)))
+         entries (debug-parse (nth groups index) index true)]
      (binding [fimport/*book-name* book]
-       (debug-parse (nth groups index) index true)))))
+       (try
+         (let [tx-updates (->> entries
+                               (keep (partial fimport/entry-updates db))
+                               (doall))]
+           (println)
+           (println "Transaction updates:")
+           (cprint tx-updates))
+         (catch Exception e
+           (println)
+           (println "Error constructing transaction updates:")
+           (print-cause-trace e)))))))
 
 
 
