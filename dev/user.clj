@@ -134,7 +134,7 @@
                    (println)
                    (println "Validation errors:")
                    (cprint errors))
-                 (when-let [tx-updates (fimport/entry-updates nil entry)]
+                 (when-let [tx-updates (fimport/entry-updates @conn entry)]
                    (println)
                    (println "Transaction updates:")
                    (cprint tx-updates))
@@ -188,10 +188,10 @@
   is selected at random."
   ([file]
    (inspect-file file nil))
-  ([file index]
+  ([file index & {:keys [book], :or {book "repl"}}]
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))]
-     (binding [fimport/*book-name* "test"]
+     (binding [fimport/*book-name* book]
        (debug-parse (nth groups index) index true)))))
 
 
