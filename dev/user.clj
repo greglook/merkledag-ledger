@@ -227,11 +227,11 @@
 (defn load-file!
   "Parses, interprets, and loads all entries in `file` into the database
   in`conn`."
-  [conn file & parse-opts]
+  [conn file]
   (reduce
     (fn [stats entry]
       (let [type-key (fimport/import-dispatch @conn entry)]
         (load-entry! conn entry)
         (update stats type-key (fnil inc 0))))
     (sorted-map)
-    (apply parse/parse-file file parse-opts)))
+    (parse/parse-file file)))

@@ -435,10 +435,10 @@
 
 (defn parse-file
   "Parse a single file, returning a sequence of interpreted ledger entries."
-  [file & {:keys [group-fn], :or {group-fn group-lines}}]
+  [file]
   (->> file
        (io/file)
        (io/reader)
        (line-seq)
-       (group-fn)
+       (group-lines)
        (mapcat parse-group)))
