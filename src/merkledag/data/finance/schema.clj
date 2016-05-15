@@ -67,7 +67,7 @@
       LocalDate)))
 
 
-;; ## Attribute Definitions
+;; ## General Data Attributes
 
 (def general-attrs
   "Definitions for generally-useful attributes."
@@ -91,6 +91,7 @@
 
    :data/sources
    {:db/doc "set of links to source documents the entity is constructed from"
+    :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many
     :schema #{MerkleLink}}})
 
@@ -106,165 +107,78 @@
      :schema org.joda.time.Interval}})
 
 
-(def commodity-attrs
-  "Attribute schemas for commodities."
-  {:finance.commodity/code
-   {:db/doc "code symbol used to identify the commodity"
-    :db/unique :db.unique/identity
-    :schema s/Symbol} ; TODO: should use CommodityCode schema
-
-   :finance.commodity/currency-symbol
-   {:db/doc "one-character string to prefix currency amounts with"
-    :schema (s/constrained s/Str #(= 1 (count %)))}
-
-   :finance.commodity/asset-classes
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    #_ :schema #_ (s/conditional map? AssetClassBreakdown
-                           :else AssetClassKey)}
-
-   :finance.commodity/commodity-classes
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    #_ :schema #_ (s/conditional map? CommoditySectorBreakdown
-                           :else CommoditySectorKey)}})
-
-
-(def price-attrs
-  "Datascript attribute schemas for commodity price points."
-  {:finance.price/commodity
-   {:db/doc "the commodity the price is measuring"
-    :db/valueType :db.type/ref}
-
-   :finance.price/value
-   {:db/doc "amount of the base commodity a unit of this commodity costs"
-    :schema Quantity}})
-
-
-(def account-attrs
-  "Datascript attribute schemas for account definitions."
-  {:finance.account/book
-   {:db/doc "name of the book the account is part of"
+#_
+(def csv-attrs
+  "Definitions for comma-separated value attributes."
+  {:csv/line
+   {:db/doc "original line of data parsed into the CSV"
     :schema s/Str}
 
-   :finance.account/id
-   {:db/doc "link to the account's root node"
-    :db/unique :db.unique/identity
-    }
+   :csv/headers
+   {:db/doc "original header line string"
+    :schema s/Str}
 
-   :finance.account/path
-   {:db/doc "path segments to uniquely identify the account"
-    :db/unique :db.unique/identity
-    :schema [s/Str]}
-
-   :finance.account/alias
-   {:db/doc "keyword alias to refer to the account by"
-    :db/index true
+   :csv/source-tag
+   {:db/doc "keyword tag for the source of the data"
     :schema s/Keyword}
 
-   :finance.account/type
-   {:db/doc "keyword identifying the type of account"
-    ;:schema AccountTypeKey
-    }
-
-   :finance.account/external-id
-   {:db/doc "string giving the account's external identifier, such as an account number"
-    :db/unique :db.unique/identity
-    :schema s/Str}
-
-   :finance.account/valid-commodities
-   {:db/doc "set of commodities which are valid for the account to contain"
-    :db/cardinality :db.cardinality/many
-    :schema #{s/Symbol #_CommodityCode}}
-   })
-
-
-(def entry-attrs
-  "Datascript attribute schemas for book entries."
-  {:finance.entry/book
-   {:db/doc "name of the book the entry is part of"
-    :schema s/Str}
-
-   :finance.entry/rank
-   {:db/doc "extra numeric value to determine the ordering of entries with the same timestamp"
-    :schema s/Num}})
-
-
-(def transaction-attrs
-  "Datascript attribute schemas for transactions."
-  {:finance.transaction/entries
-   {:db/doc "references to child postings and balance checks"
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :schema [(link-to Posting)]}
-
-   :finance.transaction/links
-   {:db/doc "string identifiers linking transactions together"
-    :db/cardinality :db.cardinality/many
-    :db/index true
-    :schema #{s/Str}}
-
-   :finance.transaction/flag
-   {:db/doc "optional flag value to apply to postings"
-    :schema s/Keyword}
-   })
+   :csv/data
+   {:db/doc "map of parsed header/data pairs"
+    :schema {s/Keyword s/Str}}})
 
 
 
-
-
-
-
-
-
-
-
-
-;; ## Old Schema Forms
-
-(defn attrs->schema
-  "Converts a map of attribute definitions into a map schema."
-  [name & attr-maps]
-  (s/named
-    (->> (apply merge attr-maps)
-         (map (fn [[k s]] [(s/optional-key k) s]))
-         (into {}))
-    name))
-
-
-(defn link-to
-  "Schema for a merkle link to an object which must objey the given schema.
-  Currently, the linked object is **NOT** recursively checked."
-  ([schema]
-   MerkleLink
-   ; TODO: override link until I figure out how to do this.
-   schema)
-  ([name schema]
-   (s/constrained
-     MerkleLink
-     #(= name (:name %)))
-   ; TODO: ditto
-   schema))
-
-
-(defn link-table
-  "Schema for a map of strings to values, implemented with a node containing
-  only a link-table."
-  [schema]
-  {s/Str (link-to schema)})
-
+;; ## Helper Functions
 
 (defn- constrained-keyword
-  "Schema for a keyword with a mandatory namespace component."
-  [ns]
-  (s/constrained s/Keyword #(= ns (namespace %))))
+  "Creates a schema for a keyword with a mandatory namespace component. If
+  names are provided, the schema is an enumeration."
+  ([ns]
+   (s/constrained s/Keyword #(= ns (namespace %))))
+  ([ns names]
+   (apply s/enum (map #(keyword ns (name %)) names))))
 
 
+(defn- distribution-map
+  "Creates a schema for a key type which can either be a single keyword or a map
+  of keys whose values sum to one."
+  [key-schema]
+  (s/conditional map? (s/constrained
+                        {key-schema s/Num}
+                        #(== 1 (reduce + (vals %))))
+                 :else key-schema))
 
+
+(defn- build-schema
+  "Helper function to merge many attribute map definitions. The first argument
+  is a keyword which the `:data/type` value is required to equal. Remaining
+  arguments should be key/value pairs mapping attribute map vars to a collection
+  of keywords naming the required attributes. The remaining attributes are
+  considered optional."
+  [data-type & {:as attr-specs}]
+  (->
+    attr-specs
+    (->>
+      (merge {general-attrs [:data/type]})
+      (mapcat
+        (fn spec->schemas
+          [[attrs required-keys]]
+          (let [optional? (complement (set required-keys))]
+            (map (fn schema-key
+                   [[attr-key schema-def]]
+                   [(cond-> attr-key
+                      (optional? attr-key) s/optional-key)
+                    (:schema schema-def)])
+                 attrs))))
+      (into {}))
+    (dissoc (s/optional-key :data/type))
+    (assoc :data/type (s/eq data-type))))
 
 
 
 ;; ## Asset Classes
 
-(def asset-classes
+(def asset-class-names
   "Set of names for some common asset classes."
   #{:cash
     :intl-government-bond
@@ -292,21 +206,19 @@
 
 (defschema AssetClassKey
   "Schema for a keyword identifying an asset class."
-  (constrained-keyword "finance.commodity.asset-class"))
+  (constrained-keyword "finance.commodity.class" asset-class-names))
 
 
 (defschema AssetClassBreakdown
   "Schema for a map of asset classes to proportional numbers. The values in the
   map must sum to 1."
-  (s/constrained
-    {AssetClassKey s/Num}
-    #(== 1 (reduce + (vals %)))))
+  (distribution-map AssetClassKey))
 
 
 
-;; ## Commodity Sector
+;; ## Commodity Sectors
 
-(def commodity-sectors
+(def commodity-sector-names
   "Set of names for some common commodity sectors."
   #{:basic-materials
     :communication-services
@@ -322,150 +234,73 @@
 
 (defschema CommoditySectorKey
   "Schema for a keyword identifying a commodity sector."
-  (constrained-keyword "finance.commodity.sector"))
+  (constrained-keyword "finance.commodity.sector" commodity-sector-names))
 
 
 (defschema CommoditySectorBreakdown
   "Schema for a map of sectors to proportional numbers. The values in the map
   must sum to 1."
-  (s/named
-    (s/constrained
-      {CommoditySectorKey s/Num}
-      #(== 1 (reduce + (vals %))))
-    "sector map"))
+  (distribution-map CommoditySectorKey))
 
 
 
 ;; ## Commodities
-
-;; A commodity is defined by a symbolic code, a name, and a type. It may also
-;; have a character symbol and a format example.
 
 (defschema CommodityCode
   "Schema for a symbol identifying a commodity."
   (s/constrained s/Symbol #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %))))
 
 
+(def commodity-attrs
+  "Attribute schemas for commodities."
+  {:finance.commodity/code
+   {:db/doc "code symbol used to identify the commodity"
+    :db/unique :db.unique/identity
+    :schema CommodityCode}
+
+   :finance.commodity/currency-symbol
+   {:db/doc "one-character string to prefix currency amounts with"
+    :schema (s/constrained s/Str #(= 1 (count %)))}
+
+   :finance.commodity/asset-class
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    :schema AssetClassBreakdown}
+
+   :finance.commodity/commodity-sector
+   {:db/doc "map of asset class breakdowns or single class keyword"
+    :schema CommoditySectorBreakdown}})
+
+
 (defschema CommodityDefinition
   "Schema for a commodity definition directive."
-  {:title s/Str
-   :data/type (s/eq :finance/commodity)
-   :finance.commodity/code CommodityCode
-   (s/optional-key :description) s/Str
-   (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.commodity/currency-symbol)
-     (s/constrained s/Str #(= 1 (count %)))
-   ; TODO: format?
-   (s/optional-key :finance.commodity/asset-classes)
-     (s/conditional map? AssetClassBreakdown
-                    :else AssetClassKey)
-   (s/optional-key :finance.commodity/sectors)
-     (s/conditional map? CommoditySectorBreakdown
-                    :else CommoditySectorKey)})
-
-
-(defschema CommodityData
-  {CommodityCode (link-to CommodityDefinition)}
-  #_ ; Disabled until link values are implemented
-  (s/constrained
-    {CommodityCode (link-to CommodityDefinition)}
-    (partial every? (fn [[c l]] (= c (:name l))))))
+  (build-schema :finance/commodity
+    commodity-attrs [:finance.comomdity/code]))
 
 
 
 ;; ## Prices
 
-(defschema PriceHistory
-  {:data/type (s/eq :finance/price-history)
-   :finance.price/commodity CommodityCode
-   :finance.price/points [{:time DateTime, :value Quantity}]
-   (s/optional-key :data/sources) #{(link-to s/Any)}})
+(def price-attrs
+  "Datascript attribute schemas for commodity price points."
+  {:finance.price/commodity
+   {:db/doc "the commodity the price is measuring"
+    :db/valueType :db.type/ref}
+
+   :finance.price/value
+   {:db/doc "amount of the base commodity a unit of this commodity costs"
+    :schema Quantity}})
 
 
-(defschema PriceData
-  {CommodityCode (link-to (link-table PriceHistory))})
-
-
-
-;; ## Accounts
-
-;; GOALS:
-;; - Be able to update account information and hierarchy WITHOUT needing to
-;;   update the transaction history.
-;; - Be able to move a subtree of accounts WITHOUT needing to update the accounts
-;;   in the subtree.
-;;
-;; To this end, accounts are given a stable identifier by creating an
-;; `account-root` structure and linking all postings and metadata to it. The
-;; root data should include enough unique information to identify the
-;; represented account.
-;;
-;; The accounts are organized into a tree from a top-level root of `/accounts`.
-;; Each account gives its segment name (via `:title`) and links to any child
-;; accounts.
-
-(def account-types
-  "Set of names for some common account types."
-  #{:cash
-    :checking
-    :savings
-    :certificate-of-deposit
-    :brokerage
-    :traditional-401k
-    :roth-401k
-    :traditional-ira
-    :roth-ira
-    :bitcoin})
-
-
-(defschema AccountTypeKey
-  "Schema for a keyword identifying an account type."
-  (constrained-keyword "finance.account.type"))
-
-
-(defschema AccountRoot
-  "Schema for an object identifying the root of an account."
-  {:title s/Str
-   :data/type (s/eq :finance/account-root)
-   (s/optional-key :description) s/Str
-   (s/optional-key :time/at) DateTime})
-
-
-; TODO: no account's path should be a prefix of another
-(defschema AccountDefinition
-  "Schema for an object defining the properties of an account."
-  {:title s/Str
-   :data/type (s/eq :finance/account)
-   :finance.account/book s/Str
-   (s/optional-key :description) s/Str
-   (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.account/id) (link-to AccountRoot)
-   (s/optional-key :finance.account/alias) s/Keyword
-   ;(s/optional-key :finance.account/state) (s/enum :open :closed)
-   (s/optional-key :finance.account/type) AccountTypeKey
-   (s/optional-key :finance.account/institution) (link-to s/Any)
-   (s/optional-key :finance.account/external-id) s/Str
-   (s/optional-key :finance.account/allowed-commodities) #{CommodityCode}
-   })
-
-
-(defschema AccountGroup
-  "Schema for an object defining the properties of an account."
-  {:title s/Str
-   :data/type (s/eq :finance/account-group)
-   :group/children #{(link-to (s/conditional
-                                #(= :finance/account-group (:data/type %))
-                                  (s/recursive #'AccountGroup)
-                                :else AccountDefinition))}
-   (s/optional-key :description) s/Str})
-
-
-(defschema AccountTrees
-  #{(link-to AccountGroup)})
+(defschema CommodityPrice
+  "Schema for an explicit price point."
+  (build-schema :finance/price
+    price-attrs [:finance.price/commodity
+                 :finance.price/value]
+    time-attrs [:time/at]))
 
 
 
-;; ## Line Items
+;; ## Items and Invoices
 
 ;; A line item represents a transacted amount of a product at a certain price.
 ;; A common example is a line on a receipt, showing the purchase of an item.
@@ -483,93 +318,238 @@
 ;;
 ;;     $12.22 ($127.29 @ 9.6%)
 
+(def item-attrs
+  "Attribute schemas for account properties."
+  {:finance.item/total
+   {:db/doc "total amount contributed by this item"
+    :schema Quantity}
+
+   :finance.item/amount
+   {:db/doc "Amount of the item on the invoice. A bare number indicates a
+            unitless amount of items transacted."
+    :schema (s/conditional number? s/Num :else Quantity)}
+
+   :finance.item/price
+   {:db/doc "Price per unit of the item. A bare number is treated as a unit
+            percentage multiplier."
+    :schema (s/conditional number? s/Num :else Quantity)}
+
+   :finance.item/vendor
+   {:db/doc "Additional string describing the vendor the item is from."
+    :schema s/Str}
+
+   :finance.item/tax-groups
+   {:db/doc "Set of keywords indicating the tax groups a given item is part of."
+    :schema #{s/Keyword}}
+
+   :finance.item/tax-applied
+   {:db/doc "Keyword indicating the group this tax item applies to."
+    :schema s/Keyword}})
+
+
 (defschema LineItem
   "Schema for a line-item in an invoice."
-  {:data/type (s/eq :finance/item)
-   :title s/Str
-   (s/optional-key :description) s/Str
-   (s/optional-key :finance.item/id) s/Str
-   (s/optional-key :finance.item/total) Quantity
-   (s/optional-key :finance.item/amount)
-     (s/conditional number? s/Num :else Quantity)
-   (s/optional-key :finance.item/price) Quantity
-   (s/optional-key :finance.item/vendor) (link-to s/Any)
-   (s/optional-key :finance.item/tax-groups) #{s/Keyword}
-   (s/optional-key :finance.item/tax-applied) s/Keyword}
   ; TODO: validations
   ; - amount and price only make sense if total is set
   ; - amount and price must be set together
   ; - total should equal amount * price (or be within tolerance)
-  )
+  (build-schema :finance/item
+    general-attrs [:title]
+    item-attrs []))
+
+
+(def invoice-attrs
+  "Attribute schemas for invoices."
+  {:finance.invoice/items
+   {:db/doc "Collection of items that make up the invoice."
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :schema [LineItem]}})
 
 
 (defschema Invoice
   "Schema for a collection of line items in an invoice."
-  {:data/type (s/eq :finance/invoice)
-   (s/optional-key :title) s/Str
-   (s/optional-key :description) s/Str
-   (s/optional-key :data/sources) #{(link-to s/Any)}
-   :finance.invoice/items [LineItem]})
+  (build-schema :finance/invoice
+    invoice-attrs [:finance.invoice/items]))
+
+
+
+;; ## Accounts
+
+(def account-type-names
+  "Set of names for some common account types."
+  #{:cash
+    :checking
+    :savings
+    :certificate-of-deposit
+    :brokerage
+    :traditional-401k
+    :roth-401k
+    :traditional-ira
+    :roth-ira
+    :bitcoin})
+
+
+(defschema AccountTypeKey
+  "Schema for a keyword identifying an account type."
+  (constrained-keyword "finance.account.type" account-type-names))
+
+
+(defschema AccountPath
+  [(s/one s/Str "root") s/Str])
+
+
+(defschema AccountAlias
+  s/Keyword)
+
+
+(defschema AccountRef
+  "Schema for a reference to an account by path or by alias."
+  (s/conditional vector? AccountPath
+                 :else AccountAlias))
+
+
+(def account-attrs
+  "Attribute schemas for account properties."
+  {:finance.account/book
+   {:db/doc "name of the book the account is part of"
+    :schema s/Str}
+
+   :finance.account/id
+   {:db/doc "link to the account's root node"
+    :db/unique :db.unique/identity}
+
+   :finance.account/path
+   {:db/doc "path segments to uniquely identify the account"
+    :db/unique :db.unique/identity
+    :schema AccountPath}
+
+   :finance.account/alias
+   {:db/doc "keyword alias to refer to the account by"
+    :db/index true
+    :schema AccountAlias}
+
+   :finance.account/type
+   {:db/doc "keyword identifying the type of account"
+    :schema AccountTypeKey}
+
+   :finance.account/external-id
+   {:db/doc "string giving the account's external identifier, such as an account number"
+    :db/unique :db.unique/identity
+    :schema s/Str}
+
+   :finance.account/valid-commodities
+   {:db/doc "set of commodities which are valid for the account to contain"
+    :db/cardinality :db.cardinality/many
+    :schema #{CommodityCode}}})
+
+
+(defschema AccountDefinition
+  "Schema for an object defining the properties of an account."
+  (build-schema :finance/account
+    account-attrs [:finance.account/book
+                   :finance.account/path]))
+
+
+
+;; ## Journal Entries
+
+(def entry-attrs
+  "Datascript attribute schemas for journal entries."
+  {:finance.entry/account
+   {:db/doc "name of the account the entry is related to"
+    :db/valueType :db.type/ref
+    :schema AccountRef}
+
+   ; TODO: other metadata
+
+   :finance.entry/rank
+   {:db/doc "extra numeric value to determine the ordering of entries with the same timestamp"
+    :schema s/Num}})
+
+
+(def balance-attrs
+  "Attribute schemas for balance check entries."
+  {:finance.balance/amount
+   {:db/doc "amount of a certain commodity the account should contain"
+    :schema Quantity}})
+
+
+(defschema AccountOpened
+  "Opening marker for an account."
+  (build-schema :finance.entry/open-account
+    entry-attrs [:finance.entry/account]
+    time-attrs [:time/at]))
+
+
+(defschema AccountClosed
+  "Tombstone marker for an account."
+  (build-schema :finance.entry/close-account
+    entry-attrs [:finance.entry/account]
+    time-attrs [:time/at]))
+
+
+(defschema AccountNote
+  "General annotation and document linking to accounts."
+  (build-schema :finance.entry/note
+    entry-attrs [:finance.entry/account]
+    time-attrs [:time/at]))
+
+
+(defschema BalanceCheck
+  "Assertion that an account contains a specific amount of a commodity."
+  (build-schema :finance.entry/balance-check
+    entry-attrs [:finance.entry/account]
+    balance-attrs [:finance.balance/amount]
+    time-attrs [:time/at]))
 
 
 
 ;; ## Postings
 
-;; An account has a _register_, which is the linear sequence of _entries_
-;; applied to it. A _posting_ is usually an amount change, but may also contain
-;; balance checks and general notes. Postings are primarily sorted by timestamp,
-;; but ones with the same timestamp (usually because of day-level precision) are
-;; ordered by transaction placement in the history.
+(def posting-attrs
+  "Attribute schemas for posting entries."
+  {:finance.posting/virtual
+   {:db/doc "boolean flag indicating that the posting is virtual and need not balance"
+    :schema s/Bool}
 
-(def EntrySchema
-  "General attributes used by financial book entries, including account notes,
-  directives, and postings."
-  {:time/at DateTime
-   :finance.entry/account (link-to AccountRoot)
-   (s/optional-key :description) s/Str
-   (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.entry/rank) s/Num})
+   :finance.posting/payee
+   {:db/doc "string name for the counterparty of this posting"
+    :schema s/Str}
 
+   :finance.posting/amount
+   {:db/doc "quantity of a commodity that is changed in the account"
+    :schema Quantity}
 
-(defschema AccountNote
-  "General annotation and document linking to accounts."
-  (merge
-    EntrySchema
-    {:data/type (s/eq :finance.entry/note)}))
+   :finance.posting/price
+   {:db/doc "price per-unit of the commodity in `amount` the posting took place at"
+    :schema Quantity}
 
+   :finance.posting/weight
+   {:db/doc "if `price` is set, rather than relying on multiplying the amount by
+            the price, an explicit balance weight can be given"
+    :schema Quantity}
 
-(defschema AccountOpened
-  "Opening marker for an account."
-  (merge
-    EntrySchema
-    {:data/type (s/eq :finance.entry/account-opened)}))
+   :finance.posting/lot
+   {:db/doc "reference to the posting which established the position this posting is altering"
+    :db/valueType :db.type/ref}
 
+   :finance.posting/lot-date
+   {:db/doc "date used to establish the lot"
+    :schema LocalDate}
 
-(defschema AccountClosed
-  "Tombstone marker for an account."
-  (merge
-    EntrySchema
-    {:data/type (s/eq :finance.entry/account-closed)}))
+   :finance.posting/cost
+   {:db/doc "amount per unit that the commodity amount originally cost"
+    :schema Quantity}
+
+   :finance.posting/invoice
+   {:db/doc "reference to an itemized list for the posting amount"
+    :db/valueType :db.type/ref
+    :schema Invoice}})
 
 
 (defschema Posting
   "Schema for a financial posting to an account."
-  (merge
-    EntrySchema
-    {:data/type (s/eq :finance.entry/posting)
-     (s/optional-key :finance.posting/id) s/Str
-     (s/optional-key :finance.posting/virtual) s/Bool
-     (s/optional-key :finance.posting/payee) s/Str
-     ; TODO: review these attrs
-     (s/optional-key :finance.posting/amount) Quantity
-     (s/optional-key :finance.posting/price) Quantity
-     (s/optional-key :finance.posting/lot-id) s/Str
-     (s/optional-key :finance.posting/lot-cost) Quantity
-     (s/optional-key :finance.posting/lot-date) LocalDate
-     (s/optional-key :finance.posting/weight) Quantity
-     (s/optional-key :finance.posting/balance) Quantity
-     (s/optional-key :finance.posting/invoice) (link-to Invoice)
-     })
   ; TODO: validations
   ; - amount and price must have different commodities
   ; - weight only makes sense when price is specified
@@ -579,24 +559,38 @@
   ; - total of items in invoice must match amount
   ; - lot-id should specify a real previous posting
   ; - lot-cost and lot-date should match identified posting
-  )
+  (build-schema :finance.entry/posting
+    entry-attrs [:finance.entry/account]
+    time-attrs [:time/at]
+    posting-attrs []))
 
 
 
 ;; ## Transactions
 
+(def transaction-attrs
+  "Datascript attribute schemas for transactions."
+  {:finance.transaction/entries
+   {:db/doc "references to child journal entries"
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :schema [s/Any]}
+
+   :finance.transaction/links
+   {:db/doc "string identifiers linking transactions together"
+    :db/cardinality :db.cardinality/many
+    :db/index true
+    :schema #{s/Str}}
+
+   :finance.transaction/flag
+   {:db/doc "optional flag value to apply to postings"
+    :schema s/Keyword}})
+
+
 (defschema Transaction
   "Schema for an object representing a financial transaction."
-  {:title s/Str
-   :data/ident s/Str
-   :data/type (s/eq :finance/transaction)
-   :finance.entry/book s/Str
-   :finance.entry/rank s/Num
-   :finance.transaction/entries [(link-to Posting)]
-   :time/at DateTime
-   (s/optional-key :description) s/Str
-   (s/optional-key :data/sources) #{(link-to s/Any)}
-   (s/optional-key :finance.transaction/flag) s/Keyword}
   ; TODO: validations
   ; - real posting weights must sum to zero
-  )
+  (build-schema :finance/transaction
+    transaction-attrs [:finance.transaction/entries]
+    general-attrs [:title]))
