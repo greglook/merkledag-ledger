@@ -321,7 +321,11 @@
 
 (def item-attrs
   "Attribute schemas for account properties."
-  {:finance.item/total
+  {:finance.item/rank
+   {:db/doc "number giving the order the item appears on its invoice"
+    :schema s/Num}
+
+   :finance.item/total
    {:db/doc "total amount contributed by this item"
     :schema Quantity}
 

@@ -219,11 +219,7 @@
      {:data/type :finance/price
       :time/at date
       :finance.price/commodity code
-      :finance.price/value price})
-
-   ; Not supported:
-   ;:CommodityConversion identity
-   })
+      :finance.price/value price})})
 
 
 (def account-transforms
