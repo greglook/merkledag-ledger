@@ -110,21 +110,44 @@
     (throw (RuntimeException. "Must bind *book-name* to integrate accounts!")))
   (let [path (:finance.account/path account)
         [extant] (d/q '[:find [?a]
-                        :in $ ?books ?path
+                        :in $ ?book ?path
                         :where [?a :finance.account/path ?path]
-                               [?a :finance.account/book ?books]
+                               [?a :finance.account/book ?book]
                                [?a :data/type :finance/account]]
                       db *book-name* path)]
-    [(-> account
-         (assoc :db/id (or extant -1)
-                :finance.account/book *book-name*
-                :finance.account/path path)
-         (dissoc :data/sources))]))
+    [(assoc account
+            :db/id (or extant -1)
+            :finance.account/book *book-name*
+            :finance.account/path path)]))
+
+
+(defn- tx-entry-updates
+  [db entry]
+  ; TODO: look up account for this entry (must already exist)
+  ; TODO: generate updates for invoice (if present)
+  (let [account-ref (:finance.entry/account entry)
+        [account-id] (if (keyword? account-ref)
+                       (d/q '[:find [?a]
+                              :in $ ?book ?alias
+                              :where [?a :finance.account/book ?book]
+                                     [?a :finance.account/alias ?alias]]
+                            db *book-name* account-ref)
+                       (d/q '[:find [?a]
+                              :in $ ?book ?path
+                              :where [?a :finance.account/book ?book]
+                                     [?a :finance.account/path ?path]]
+                            db *book-name* account-ref))]
+    (when-not account-id
+      (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
+                      {:account account-ref})))
+    ; ...
+    []))
 
 
 (defmethod entry-updates :finance/transaction
   [db transaction]
   (when-not *book-name*
     (throw (RuntimeException. "Must bind *book-name* to integrate transactions!")))
-  ; TODO: implement
-  [])
+  ; TODO: generate update specs for entries
+  ; TODO: generate tx spec
+  (mapcat (partial tx-entry-updates db) (:finance.transaction/entries transaction)))

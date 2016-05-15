@@ -430,7 +430,7 @@
        (ledger-parser)
        (check-parse!)
        (interpret-parse)
-       (map (partial add-source group))))
+       #_ (map (partial add-source group))))
 
 
 (defn parse-file
