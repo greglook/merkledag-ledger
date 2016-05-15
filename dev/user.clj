@@ -124,10 +124,10 @@
                  (println)
                  (println "Interpreted:")
                  (cprint interpreted)
-                 #_
                  (when-let [errors (some->
                                      {:finance/account schema/AccountDefinition
                                       :finance/commodity schema/CommodityDefinition
+                                      :finance/price schema/CommodityPrice
                                       :finance/transaction schema/Transaction}
                                      (get (:data/type entry))
                                      (s/check entry))]

@@ -25,9 +25,7 @@
   [{:keys [repo ref-name]}]
   {:repo repo
    :root ref-name
-   :data (d/create-conn (merge mdfs/general-attrs
-                               mdfs/commodity-attrs
-                               mdfs/price-attrs))})
+   :data (d/create-conn mdfs/db-schema)})
 
 
 

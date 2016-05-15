@@ -93,7 +93,7 @@
    {:db/doc "set of links to source documents the entity is constructed from"
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many
-    :schema #{MerkleLink}}})
+    :schema #{s/Any}}})
 
 
 (def time-attrs
@@ -284,7 +284,8 @@
   "Datascript attribute schemas for commodity price points."
   {:finance.price/commodity
    {:db/doc "the commodity the price is measuring"
-    :db/valueType :db.type/ref}
+    :db/valueType :db.type/ref
+    :schema CommodityCode}
 
    :finance.price/value
    {:db/doc "amount of the base commodity a unit of this commodity costs"
@@ -417,7 +418,8 @@
 
    :finance.account/id
    {:db/doc "link to the account's root node"
-    :db/unique :db.unique/identity}
+    :db/unique :db.unique/identity
+    :schema s/Str}
 
    :finance.account/path
    {:db/doc "path segments to uniquely identify the account"
@@ -475,33 +477,33 @@
     :schema Quantity}})
 
 
-(defschema AccountOpened
+(defschema OpenAccount
   "Opening marker for an account."
   (build-schema :finance.entry/open-account
-    entry-attrs [:finance.entry/account]
-    time-attrs [:time/at]))
+    time-attrs [:time/at]
+    entry-attrs [:finance.entry/account]))
 
 
-(defschema AccountClosed
+(defschema CloseAccount
   "Tombstone marker for an account."
   (build-schema :finance.entry/close-account
-    entry-attrs [:finance.entry/account]
-    time-attrs [:time/at]))
+    time-attrs [:time/at]
+    entry-attrs [:finance.entry/account]))
 
 
 (defschema AccountNote
   "General annotation and document linking to accounts."
   (build-schema :finance.entry/note
-    entry-attrs [:finance.entry/account]
-    time-attrs [:time/at]))
+    time-attrs [:time/at]
+    entry-attrs [:finance.entry/account]))
 
 
 (defschema BalanceCheck
   "Assertion that an account contains a specific amount of a commodity."
   (build-schema :finance.entry/balance-check
+    time-attrs [:time/at]
     entry-attrs [:finance.entry/account]
-    balance-attrs [:finance.balance/amount]
-    time-attrs [:time/at]))
+    balance-attrs [:finance.balance/amount]))
 
 
 
@@ -532,7 +534,8 @@
 
    :finance.posting/lot
    {:db/doc "reference to the posting which established the position this posting is altering"
-    :db/valueType :db.type/ref}
+    :db/valueType :db.type/ref
+    :schema MerkleLink}
 
    :finance.posting/lot-date
    {:db/doc "date used to establish the lot"
@@ -560,21 +563,38 @@
   ; - lot-id should specify a real previous posting
   ; - lot-cost and lot-date should match identified posting
   (build-schema :finance.entry/posting
-    entry-attrs [:finance.entry/account]
     time-attrs [:time/at]
+    entry-attrs [:finance.entry/account]
+    balance-attrs []
     posting-attrs []))
 
 
 
 ;; ## Transactions
 
+(defschema JournalEntry
+  (->>
+    {:open-account OpenAccount
+     :close-account CloseAccount
+     :balance-check BalanceCheck
+     :posting Posting
+     :note AccountNote}
+    (mapcat (fn [[kw schema]]
+              [#(= (keyword "finance.entry" (name kw)) (:data/type %)) schema]))
+    (apply s/conditional)))
+
+
 (def transaction-attrs
   "Datascript attribute schemas for transactions."
-  {:finance.transaction/entries
+  {:finance.transaction/date
+   {:db/doc "local calendar date on which the transaction occurred"
+    :schema LocalDate}
+
+   :finance.transaction/entries
    {:db/doc "references to child journal entries"
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many
-    :schema [s/Any]}
+    :schema [JournalEntry]}
 
    :finance.transaction/links
    {:db/doc "string identifiers linking transactions together"
@@ -592,5 +612,26 @@
   ; TODO: validations
   ; - real posting weights must sum to zero
   (build-schema :finance/transaction
-    transaction-attrs [:finance.transaction/entries]
-    general-attrs [:title]))
+    general-attrs [:title]
+    transaction-attrs [:finance.transaction/date
+                       :finance.transaction/entries]))
+
+
+
+;; ## All Attributes
+
+(def db-schema
+  "A combination of every attribute map suitable for creating a datascript
+  database from."
+  (merge general-attrs
+         time-attrs
+         #_ csv-attrs
+         commodity-attrs
+         price-attrs
+         item-attrs
+         invoice-attrs
+         account-attrs
+         entry-attrs
+         balance-attrs
+         posting-attrs
+         transaction-attrs))
