@@ -12,6 +12,36 @@
     [schema.core :as s]))
 
 
+(def ^:private ^:dynamic *temp-id*
+  "Holds the next available temporary id for use; each use should decrement it
+  to provide the next available id."
+  nil)
+
+
+(defmacro with-tx-context
+  [& body]
+  `(binding [*temp-id* -1]
+     ~@body))
+
+
+(defn- next-temp-id!
+  "Returns the next unused temporary id number and registers it with the
+  dynamic var."
+  []
+  (when-not (thread-bound? #'*temp-id*)
+    (throw (RuntimeException. "Dynamic var *temp-id* must be bound to use this function")))
+  (let [id *temp-id*]
+    (set! *temp-id* (dec id))
+    id))
+
+
+(defn- id-or-temp!
+  "If the given entity exists and contains a `:db/id` field, the value is
+  returned. Otherwise, a temporary id is generated."
+  [entity]
+  (or (:db/id entity) (next-temp-id!)))
+
+
 (defn- rand-hex
   [length]
   (let [bs (byte-array length)]
@@ -46,7 +76,7 @@
 
 (defmethod entry-updates :default
   [db book entry]
-  (let [entry-type (import-dispatch db entry)]
+  (let [entry-type (import-dispatch db book entry)]
     (throw (ex-info (str "Unsupported entry type: " entry-type)
                     {:type entry-type
                      :entry entry}))))
@@ -67,10 +97,10 @@
   [db _ commodity]
   (s/validate schema/CommodityDefinition commodity)
   (let [code (:finance.commodity/code commodity)
-        entity (when db (d/entity db [:finance.commodity/code code]))]
+        entity (d/entity db [:finance.commodity/code code])]
     [(-> commodity
          (dissoc :data/sources ::format ::options)
-         (assoc :db/id (:db/id entity -1))
+         (assoc :db/id (id-or-temp! entity))
          (cond->
            (and (::format commodity) (not (re-seq #"^\d" (::format commodity))))
              (assoc :finance.commodity/currency-symbol (first (::format commodity)))))]))

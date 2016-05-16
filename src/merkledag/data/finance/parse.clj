@@ -215,7 +215,7 @@
    (fn ->commodity-price
      [date code price]
      {:data/type :finance/price
-      :time/at date
+      :time/at (ctime/to-date-time date)
       :finance.price/commodity code
       :finance.price/value price})})
 
@@ -389,10 +389,10 @@
 ;; ## File Parsing
 
 (defn- add-source
-  "Adds a `:data/sources` key to associative values in a parsed entry."
+  "Adds an entry to associative values with the original parse text."
   [source entry]
   (if (map? entry)
-    (update entry :data/sources (fnil conj #{}) (apply subs source (parse/span entry)))
+    (update entry ::source (fnil conj #{}) (apply subs source (parse/span entry)))
     entry))
 
 

@@ -185,12 +185,13 @@
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
      (try
-       (let [tx-updates (->> entries
-                             (keep (partial fimport/entry-updates db book))
-                             (doall))]
+       (let [tx-updates (fimport/with-tx-context
+                          (->> entries
+                               (keep (partial fimport/entry-updates db book))
+                               (doall)))]
          (println)
          (println "Transaction updates:")
-         (cprint tx-updates))
+         (doseq [tx tx-updates] (cprint tx)))
        (catch Exception e
          (println)
          (println "Error constructing transaction updates:")
@@ -205,11 +206,12 @@
   an exception if generating or transacting the updates fails."
   [conn book entry]
   (try
-    (when-let [tx-updates (->> entry
-                               (fimport/entry-updates @conn book)
-                               (remove nil?)
-                               (seq))]
-      (d/transact! conn tx-updates))
+    (fimport/with-tx-context
+      (when-let [tx-updates (->> entry
+                                 (fimport/entry-updates @conn book)
+                                 (remove nil?)
+                                 (seq))]
+        (d/transact! conn tx-updates)))
     (catch Exception ex
       (println "Error loading entry!")
       (cprint (ex-data ex))
