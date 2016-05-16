@@ -227,35 +227,26 @@
       entries)))
 
 
-(defn load-file!
-  "Parses, interprets, and loads all entries in `file` into the database
-  in `db/conn`. Prints out the number of each entity loaded and the total time elapsed."
-  [book file]
-  (->>
-    file
-    (io/file)
-    (io/reader)
-    (line-seq)
-    (parse/group-lines)
-    (reduce (partial measured-import! book) (sorted-map))))
-
-
-(defn load-prices!
-  "Parses and loads a price database file. This is more efficient than the
-  generic `load-file!` function because it parses each line individually."
-  [file]
-  (->>
-    file
-    (io/file)
-    (io/reader)
-    (line-seq)
-    (map #(str % "\n"))
-    (reduce (partial measured-import! nil) (sorted-map))))
+(defn load-ledger!
+  "Parses, interprets, and loads all entries in `file` into the database in
+  `db/conn`. Prints out the number of each entity loaded and the total time
+  elapsed."
+  [book file & {:as opts}]
+  (let [group-entries (if (:price-db opts)
+                        (partial map #(str % "\n"))
+                        parse/group-lines)]
+    (->>
+      file
+      (io/file)
+      (io/reader)
+      (line-seq)
+      (group-entries)
+      (reduce (partial measured-import! book) (sorted-map)))))
 
 
 (defn print-stats
-  "Prints out the stat maps returned by `load-file!` and `load-prices!` in a
-  human-readable format."
+  "Prints out the stat maps returned by `load-ledger!` in a human-readable
+  format."
   [stats]
   (let [get-ps
         (fn [nums]
