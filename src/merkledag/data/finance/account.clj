@@ -20,6 +20,15 @@
       (d/entity db account-id))))
 
 
+(defn find-account!
+  "Finds an account as in `find-account`, but throws an exception if the
+  account cannot be located."
+  [db book account-ref]
+  (or (find-account db book account-ref)
+      (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
+                      {:error :not-found, :account account-ref}))))
+
 
 ; TODO: validate an account definition
+
 ; TODO: get an account's register

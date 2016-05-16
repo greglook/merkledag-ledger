@@ -141,12 +141,7 @@
     (throw (IllegalArgumentException. "Must provide book name to import accounts!")))
   (s/validate (dissoc schema/AccountDefinition :finance.account/book) account)
   (let [path (:finance.account/path account)
-        [extant] (d/q '[:find [?a]
-                        :in $ ?book ?path
-                        :where [?a :finance.account/path ?path]
-                               [?a :finance.account/book ?book]
-                               [?a :data/type :finance/account]]
-                      db book path)]
+        extant (account/find-account db book path)]
     [(assoc account
             :db/id (id-or-temp! extant)
             :finance.account/book book)]))
@@ -169,11 +164,7 @@
 
 (defmethod entry-updates ::entry
   [db book entry]
-  (let [account-ref (:finance.entry/account entry)
-        account (account/find-account db book account-ref)]
-    (when-not account
-      (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
-                      {:account account-ref})))
+  (let [account (account/find-account! db book (:finance.entry/account entry))]
     (cons
       (-> entry
           (assoc :db/id (next-temp-id!)
