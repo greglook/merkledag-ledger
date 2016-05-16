@@ -184,7 +184,7 @@
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
      (try
-       (let [tx-updates (fimport/with-tx-context
+       (let [tx-updates (fimport/with-context book
                           (->> entries
                                (keep (partial fimport/entry-updates db book))
                                (doall)))]
