@@ -209,6 +209,11 @@
           ::format  (collect-one :CommodityFormat)
           ::options (collect-all :CommodityOption)}
          children)
+       (as-> commodity
+         (let [fmt (::format commodity)]
+           (if (and fmt (not (re-seq #"^\d" fmt)))
+             (assoc commodity :finance.commodity/currency-symbol (first fmt))
+             commodity)))
        (dissoc ::format ::options)))
 
    :CommodityPrice

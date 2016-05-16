@@ -103,12 +103,7 @@
   (s/validate schema/CommodityDefinition commodity)
   (let [code (:finance.commodity/code commodity)
         entity (d/entity db [:finance.commodity/code code])]
-    [(-> commodity
-         (dissoc :data/sources ::format ::options)
-         (assoc :db/id (id-or-temp! entity))
-         (cond->
-           (and (::format commodity) (not (re-seq #"^\d" (::format commodity))))
-             (assoc :finance.commodity/currency-symbol (first (::format commodity)))))]))
+    [(assoc commodity :db/id (id-or-temp! entity))]))
 
 
 (defmethod entry-updates :finance/price
