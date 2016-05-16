@@ -430,8 +430,8 @@
     :schema s/Str}
 
    :finance.account/path
-   {:db/doc "path segments to uniquely identify the account"
-    :db/unique :db.unique/identity
+   {:db/doc "path segments to uniquely identify the account within a book"
+    :db/index true
     :schema AccountPath}
 
    :finance.account/alias

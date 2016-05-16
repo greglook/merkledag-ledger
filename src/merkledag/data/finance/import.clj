@@ -128,7 +128,7 @@
                                  [?p :data/type :finance/price]
                                  [?p :time/at ?time]]
                         db code inst)]
-      [{:db/id (id-or-temp! extant)
+      [{:db/id (id-or-temp! {:db/id extant})
         :data/type :finance/price
         :finance.price/commodity (:db/id commodity)
         :finance.price/value value
@@ -151,6 +151,8 @@
   [db book transaction]
   (when-not book
     (throw (IllegalArgumentException. "Must provide book name to import transactions!")))
+  (s/validate schema/Transaction transaction)
+  ; TODO: need to do deduplication here
   (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db book) entries)
         entry-ids (set (map (comp :db/id first) updates))]
