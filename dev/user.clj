@@ -53,6 +53,13 @@
       (format "%.3f ms" elapsed)))
 
 
+(defn nanos->ms
+  "Converts an integer duration in nanoseconds to a vector with a floating-point
+  millisecond time and the symbol `ms`."
+  [nanos]
+  [(/ nanos 1000000.0) 'ms])
+
+
 
 ;; ## Parsing Tools
 
@@ -198,14 +205,73 @@
          (print-cause-trace e))))))
 
 
+(defn measured-import!
+  "Accepts a chunk of text to parse and import into the database. Updates the
+  given stats map with a datapoint measuring the nanoseconds taken to parse and
+  load the entries. Returns the updated stats map."
+  [book stats text]
+  (let [parse-start (System/nanoTime)
+        entries (parse/parse-group text)
+        parse-elapsed (- (System/nanoTime) parse-start)]
+    (reduce
+      (fn measure-load
+        [stats entry]
+        (let [type-key (fimport/import-dispatch nil entry)
+              load-start (System/nanoTime)]
+          (fimport/load-entry! db/conn book entry)
+          (update stats type-key
+                  (fnil conj [])
+                  {:parse parse-elapsed
+                   :load (- (System/nanoTime) load-start)})))
+      stats
+      entries)))
+
+
 (defn load-file!
   "Parses, interprets, and loads all entries in `file` into the database
-  in `db/conn`."
+  in `db/conn`. Prints out the number of each entity loaded and the total time elapsed."
   [book file]
-  (reduce
-    (fn [stats entry]
-      (let [type-key (fimport/import-dispatch nil book entry)]
-        (load-entry! book entry)
-        (update stats type-key (fnil inc 0))))
-    (sorted-map)
-    (parse/parse-file file)))
+  (->>
+    file
+    (io/file)
+    (io/reader)
+    (line-seq)
+    (parse/group-lines)
+    (reduce (partial measured-import! book) (sorted-map))))
+
+
+(defn load-prices!
+  "Parses and loads a price database file. This is more efficient than the
+  generic `load-file!` function because it parses each line individually."
+  [file]
+  (->>
+    file
+    (io/file)
+    (io/reader)
+    (line-seq)
+    (map #(str % "\n"))
+    (reduce (partial measured-import! nil) (sorted-map))))
+
+
+(defn print-stats
+  "Prints out the stat maps returned by `load-file!` and `load-prices!` in a
+  human-readable format."
+  [stats]
+  (let [get-ps
+        (fn [nums]
+          (if (= 1 (count nums))
+            (nanos->ms (first nums))
+            (->> [1/4 2/4 3/4 4/4]
+                 (map #(cond
+                         (<= % 0.0)
+                           (first nums)
+                         (>= % 1.0)
+                           (last nums)
+                         :else
+                           (nth nums (int (* % (count nums))))))
+                 (mapv nanos->ms))))]
+    (doseq [[stat numbers] stats]
+      (when-not (= "finance.import" (namespace stat))
+        (cprint [stat {:count (count numbers)
+                       :parse (get-ps (sort (map :parse numbers)))
+                       :load  (get-ps (sort (map :load numbers)))}])))))
