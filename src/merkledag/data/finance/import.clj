@@ -79,6 +79,17 @@
   #'import-dispatch)
 
 
+(defn load-entry!
+  "Loads the interpreted entry into the given database connection. Throws an
+  exception if generating or transacting the updates fails."
+  [conn book entry]
+  (with-context book
+    (when-let [updates (->> (entry-updates @conn entry)
+                            (remove nil?)
+                            (seq))]
+      (d/transact! conn updates))))
+
+
 (defmethod entry-updates :default
   [db entry]
   (let [entry-type (import-dispatch db entry)]

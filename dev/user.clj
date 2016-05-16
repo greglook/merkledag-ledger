@@ -26,8 +26,6 @@
     [user.db :as db]))
 
 
-;; ## Debugging Utilities
-
 (defn cprint
   [x]
   (puget/pprint
@@ -55,15 +53,15 @@
       (format "%.3f ms" elapsed)))
 
 
+
+;; ## Parsing Tools
+
 (defn reload-grammar!
   "Recreate the Ledger parser by loading the grammar file."
   []
   (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
   :reloaded)
 
-
-
-;; ## Parsing Tools
 
 (defn find-groups
   "Searches through the groups in a file to find ones which match the given
@@ -174,6 +172,9 @@
               (zero? errors))))))
 
 
+
+;; ## Data Integration
+
 (defn inspect-file
   "Inspects the parsing of a group in the given file. If no index is given, one
   is selected at random."
@@ -195,26 +196,6 @@
          (println)
          (println "Error constructing transaction updates:")
          (print-cause-trace e))))))
-
-
-
-;; ## Data Integration
-
-(defn load-entry!
-  "Loads the parsed and interpreted entry into the database in `db/conn`.
-  Throws an exception if generating or transacting the updates fails."
-  [book entry]
-  (try
-    (fimport/with-tx-context
-      (when-let [tx-updates (->> entry
-                                 (fimport/entry-updates @db/conn book)
-                                 (remove nil?)
-                                 (seq))]
-        (d/transact! db/conn tx-updates)))
-    (catch Exception ex
-      (println "Error loading entry!")
-      (cprint (ex-data ex))
-      (throw ex))))
 
 
 (defn load-file!
