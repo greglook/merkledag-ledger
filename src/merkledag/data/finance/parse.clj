@@ -394,11 +394,9 @@
 ;; ## File Parsing
 
 (defn- add-source
-  "Adds an entry to associative values with the original parse text."
+  "Adds metadata to the entry with the original parse text."
   [source entry]
-  (if (map? entry)
-    (update entry ::source (fnil conj #{}) (apply subs source (parse/span entry)))
-    entry))
+  (vary-meta entry assoc ::source (apply subs source (parse/span entry))))
 
 
 (defn- check-parse!
@@ -429,7 +427,7 @@
        (ledger-parser)
        (check-parse!)
        (interpret-parse)
-       #_ (map (partial add-source group))))
+       (map (partial add-source group))))
 
 
 (defn parse-file
