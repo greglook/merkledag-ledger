@@ -266,3 +266,61 @@
         (cprint [stat {:count (count numbers)
                        :parse (get-ps (sort (map :parse numbers)))
                        :load  (get-ps (sort (map :load numbers)))}])))))
+
+
+(defn print-error
+  [ex]
+  (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
+  (some-> ex ex-data cprint))
+
+
+(defn load-commodities!
+  [ledger-root]
+  (println "Loading commodity definitions...")
+  (try
+    (let [path (str ledger-root "/commodities.ledger")]
+      (time (print-stats (load-ledger! nil path))))
+    (catch Exception ex
+      (print-error ex)
+      (throw ex))))
+
+
+(defn load-prices!
+  [ledger-root]
+  (println "Loading price history...")
+  (try
+    (let [path (str ledger-root "/prices.dat")]
+      (time (print-stats (load-ledger! nil path :price-db true))))
+    (catch Exception ex
+      (print-error ex)
+      (throw ex))))
+
+
+(defn load-books!
+  [ledger-root book]
+  (let [book-dir (io/file ledger-root "books" book)
+        book-files (list* (io/file book-dir "accounts.ledger")
+                          (io/file book-dir "books.ledger")
+                          (.listFiles (io/file book-dir "journals")))]
+    (time
+      (doseq [file book-files]
+        (let [relpath (subs (str file) (inc (count (str book-dir))))]
+          (println "Loading" book "book file" relpath "..."))
+        (try
+          (time (print-stats (load-ledger! book file)))
+          (println)
+          (catch Exception ex
+            (print-error ex)
+            (throw ex)))))))
+
+
+(defn load-all!
+  [ledger-root]
+  (time
+    (do (load-commodities! ledger-root)
+        (println)
+        (load-prices! ledger-root)
+        (println)
+        (doseq [book (map #(.getName %) (.listFiles (io/file ledger-root "books")))]
+          (load-books! ledger-root book)
+          (println)))))
