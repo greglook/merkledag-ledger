@@ -4,6 +4,16 @@
     [datascript.core :as d]))
 
 
+; Static checks:
+; - schema validates
+
+; Book-level checks:
+; - no account path should be a prefix of another account
+
+; Historical checks:
+; - account should only ever contain allowed commodities (move to posting?)
+
+
 (defn find-account
   "Returns the entity for an account identified by a keyword alias or a path
   vector in the given set of books."
@@ -28,7 +38,5 @@
       (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
                       {:error :not-found, :account account-ref}))))
 
-
-; TODO: validate an account definition
 
 ; TODO: get an account's register

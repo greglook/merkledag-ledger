@@ -5,6 +5,14 @@
     [merkledag.data.finance.types :as types]))
 
 
+; Static checks:
+; - all entry accounts belong to the same books
+; - real posting weights must sum to zero
+
+; Historical checks:
+; ...
+
+
 (defn interpolate-entries
   "Fills in any missing transaction data by interpolating other entries."
   [entries]

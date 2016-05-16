@@ -59,7 +59,6 @@
     [merkledag.link :as link]
     [schema.core :as s :refer [defschema]])
   (:import
-    java.util.UUID
     merkledag.data.finance.types.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
@@ -307,22 +306,6 @@
 
 ;; ## Items and Invoices
 
-;; A line item represents a transacted amount of a product at a certain price.
-;; A common example is a line on a receipt, showing the purchase of an item.
-;;
-;; Typically, the _amount_ will be a bare number or a physical quantity. The
-;; _price_ is the unit price of the item, as a financial quantity. The item
-;; _total_ multiplies the two and takes the commodity specified in the price.
-;; This is rendered like:
-;;
-;;     $20.18 (2.0 lb @ $10.09)
-;;
-;; When the amount is a financial quantity and the price is a regular number,
-;; it's considered to be a percentage of the amount. One common example is tax,
-;; which is applied as a fraction of the bill total. This is rendered like:
-;;
-;;     $12.22 ($127.29 @ 9.6%)
-
 (def item-attrs
   "Attribute schemas for account properties."
   {:finance.item/rank
@@ -559,15 +542,6 @@
 
 (defschema Posting
   "Schema for a financial posting to an account."
-  ; TODO: validations
-  ; - amount and price must have different commodities
-  ; - weight only makes sense when price is specified
-  ; - weight must be in same commodity as price
-  ; - weight must be within tolerance of amount * price
-  ; - balance should match commodity in amount
-  ; - total of items in invoice must match amount
-  ; - lot-id should specify a real previous posting
-  ; - lot-cost and lot-date should match identified posting
   (build-schema :finance.entry/posting
     time-attrs [:time/at]
     entry-attrs [:finance.entry/account]
@@ -615,8 +589,6 @@
 
 (defschema Transaction
   "Schema for an object representing a financial transaction."
-  ; TODO: validations
-  ; - real posting weights must sum to zero
   (build-schema :finance/transaction
     general-attrs [:title]
     transaction-attrs [:finance.transaction/date

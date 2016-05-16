@@ -56,3 +56,24 @@ A simple transaction could contain two postings, one with an amount of
 `#finance/$ [5.00M USD]` to the account `Expenses:Food:Groceries` and another
 with the inverse amount `#finance/$ [-5.00M USD]` posted to
 `Assets:Cash:Wallet`. The transaction could have a title like `"Grocery Store"`.
+
+## Invoices and Items
+
+A _line item_ is a detailed breakdown of part of a posting amount. This is like
+a single line on a receipt from a store: the individual item purchased forms
+part of the total amount which is posted to the appropriate expense account.
+
+An item may have an _amount_, which can be a bare number or a physical quantity.
+The _price_ is the unit price of the item, as either a quantity or a percentage
+scalar. The item _total_ multiplies the two and takes the commodity specified in
+the price. This is rendered like so:
+
+    $20.18 (2.0 lb @ $10.09)
+
+When the amount is a financial quantity and the price is a regular number,
+it's considered to be a percentage of the amount. One common example is tax,
+which is applied as a fraction of the bill total. This is rendered like:
+
+    $12.22 ($127.29 @ 9.6%)
+
+Invoices may be shared among multiple postings if relevant.
