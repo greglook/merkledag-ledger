@@ -16,18 +16,17 @@
     [merkledag.core :as merkle]
     [merkledag.data.finance :as finance]
     (merkledag.data.finance
+      [account :as account]
       [import :as fimport]
       [parse :as parse]
-      [schema :as schema])
+      [schema :as schema]
+      [transaction :as transaction])
     [puget.printer :as puget]
-    [schema.core :as s]))
+    [schema.core :as s]
+    [user.db :as db]))
 
 
 ;; ## Debugging Utilities
-
-; TODO: temporary for debugging
-(def conn (:data (finance/finance-db nil)))
-
 
 (defn cprint
   [x]
@@ -180,7 +179,7 @@
   is selected at random."
   ([file]
    (inspect-file file nil))
-  ([file index & {:keys [book db], :or {book "repl", db @conn}}]
+  ([file index & {:keys [book db], :or {book "repl", db @db/conn}}]
    (let [groups (-> file io/file io/reader line-seq parse/group-lines)
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
@@ -202,16 +201,16 @@
 ;; ## Data Integration
 
 (defn load-entry!
-  "Loads the parsed and interpreted entry into the database in `conn`. Throws
-  an exception if generating or transacting the updates fails."
-  [conn book entry]
+  "Loads the parsed and interpreted entry into the database in `db/conn`.
+  Throws an exception if generating or transacting the updates fails."
+  [book entry]
   (try
     (fimport/with-tx-context
       (when-let [tx-updates (->> entry
-                                 (fimport/entry-updates @conn book)
+                                 (fimport/entry-updates @db/conn book)
                                  (remove nil?)
                                  (seq))]
-        (d/transact! conn tx-updates)))
+        (d/transact! db/conn tx-updates)))
     (catch Exception ex
       (println "Error loading entry!")
       (cprint (ex-data ex))
@@ -220,12 +219,12 @@
 
 (defn load-file!
   "Parses, interprets, and loads all entries in `file` into the database
-  in`conn`."
-  [conn book file]
+  in `db/conn`."
+  [book file]
   (reduce
     (fn [stats entry]
-      (let [type-key (fimport/import-dispatch @conn book entry)]
-        (load-entry! conn book entry)
+      (let [type-key (fimport/import-dispatch nil book entry)]
+        (load-entry! book entry)
         (update stats type-key (fnil inc 0))))
     (sorted-map)
     (parse/parse-file file)))
