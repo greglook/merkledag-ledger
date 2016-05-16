@@ -9,6 +9,7 @@
     [clojure.string :as str]
     [datascript.core :as d]
     [merkledag.data.finance.schema :as schema]
+    [merkledag.data.finance.types :as types]
     [schema.core :as s]))
 
 
@@ -111,26 +112,24 @@
   (s/validate schema/CommodityPrice price)
   (let [code  (:finance.price/commodity price)
         value (:finance.price/value price)
-        commodity (when db (d/entity db [:finance.commodity/code code]))
-        inst (ctime/to-date-time (:time/at price))
-        [extant] (d/q '[:find [?p]
-                        :in $ ?code ?time
-                        :where [?c :finance.commodity/code ?code]
-                               [?p :finance.price/commodity ?c]
-                               [?p :data/type :finance/price]
-                               [?p :time/at ?time]]
-                      db code inst)]
-    [; Check that the commodity exists, otherwise create it.
-     (when-not commodity
-       {:db/id -2
-        :data/type :finance/commodity
-        :finance.commodity/code code})
-     ; Check for an extant price point for this commodity.
-     {:db/id (:db/id extant -1)
-      :data/type :finance/price
-      :finance.price/commodity (:db/id commodity -2)
-      :finance.price/value value
-      :time/at inst}]))
+        commodity (d/entity db [:finance.commodity/code code])]
+    (when-not commodity
+      (throw (ex-info (str "Cannot import price for nonexistent commodity " code)
+                      {:commodity code
+                       :entry price})))
+    (let [inst (ctime/to-date-time (:time/at price))
+          [extant] (d/q '[:find [?p]
+                          :in $ ?code ?time
+                          :where [?c :finance.commodity/code ?code]
+                                 [?p :finance.price/commodity ?c]
+                                 [?p :data/type :finance/price]
+                                 [?p :time/at ?time]]
+                        db code inst)]
+      [{:db/id (id-or-temp! extant)
+        :data/type :finance/price
+        :finance.price/commodity (:db/id commodity)
+        :finance.price/value value
+        :time/at inst}])))
 
 
 (defmethod entry-updates :finance/account
@@ -146,8 +145,63 @@
                                [?a :data/type :finance/account]]
                       db book path)]
     [(assoc account
-            :db/id (or extant -1)
+            :db/id (id-or-temp! extant)
             :finance.account/book book)]))
+
+
+(defn interpolate-entries
+  "Fills in any missing transaction data by interpolating other entries."
+  [entries]
+  (let [missing-amounts (->> entries
+                             (filter (comp #{:finance.entry/posting} :data/type))
+                             (filter (complement :finance.posting/amount)))]
+    (cond
+      (zero? (count missing-amounts))
+        entries
+
+      (= 1 (count missing-amounts))
+        (let [[balance commodities]
+              (reduce (fn [[total cs] entry]
+                        (if-let [amount (:finance.posting/amount entry)]
+                          [(+ total (:value amount)) (conj cs (:commodity amount))]
+                          [total cs]))
+                      [0M #{}]
+                      entries)
+              [before [missing after]]
+              (split-with #(or (not= :finance.entry/posting (:data/type %))
+                               (:finance.posting/amount %))
+                          entries)]
+          (when (not= :finance.entry/posting (:data/type missing))
+            (throw (ex-info (str "Cannot infer missing amount for non-posting entry: " (:data/type missing))
+                            (:entries entries
+                             :missing missing))))
+          (when (< 1 (count commodities))
+            (throw (ex-info (str "Cannot infer missing posting amount when multiple commodities are in use: " commodities)
+                            {:entries entries
+                             :commodities commodities})))
+          (concat
+            before
+            [(assoc missing :finance.posting/amount (types/->Quantity (- balance) (first commodities)))]
+            after))
+
+      :else
+        (throw (ex-info "Cannot infer posting values when more than one is missing an amount"
+                        {:entries entries})))))
+
+
+(defmethod entry-updates :finance/transaction
+  [db book transaction]
+  (when-not book
+    (throw (IllegalArgumentException. "Must provide book name to import transactions!")))
+  (let [entries (interpolate-entries (:finance.transaction/entries transaction))
+        updates (map (partial entry-updates db book) entries)
+        entry-ids (set (map (comp :db/id first) updates))]
+    (cons
+      (-> transaction
+          (assoc :db/id (next-temp-id!)
+                 :finance.transaction/entries entry-ids)
+          (dissoc :data/sources)) ; FIXME: properly link these
+      (apply concat updates))))
 
 
 (defmethod entry-updates ::entry
@@ -165,10 +219,13 @@
     (when-not account-id
       (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
                       {:account account-ref})))
-    (when (:finance.posting/invoice entry)
-      (throw (ex-info "Invoices are not implemented yet!"))) ; FIXME
-    ; ...
-    []))
+    (cons
+      (-> entry
+          (assoc :db/id (next-temp-id!)
+                 :finance.entry/account account-id)
+          (dissoc :data/sources)) ; FIXME: properly link these
+      (when-let [invoice (:finance.posting/invoice entry)]
+        (entry-updates db book invoice)))))
 
 
 (derive :finance.entry/note          ::entry)
@@ -178,10 +235,17 @@
 (derive :finance.entry/posting       ::entry)
 
 
-(defmethod entry-updates :finance/transaction
-  [db book transaction]
-  (when-not book
-    (throw (IllegalArgumentException. "Must provide book name to import transactions!")))
-  ; TODO: generate update specs for entries
-  ; TODO: generate tx spec
-  (mapcat (partial entry-updates db book) (:finance.transaction/entries transaction)))
+(defmethod entry-updates :finance/invoice
+  [db book invoice]
+  (let [item-updates (map (partial entry-updates db book)
+                          (:finance.invoice/items invoice))]
+    (cons
+      (assoc invoice
+             :db/id (next-temp-id!)
+             :finance.invoice/items (set (map (comp :db/id first) item-updates)))
+      (apply concat item-updates))))
+
+
+(defmethod entry-updates :finance/item
+  [db book item]
+  [(assoc item :db/id (next-temp-id!))])
