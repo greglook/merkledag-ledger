@@ -8,8 +8,11 @@
       [core :as time])
     [clojure.string :as str]
     [datascript.core :as d]
-    [merkledag.data.finance.schema :as schema]
-    [merkledag.data.finance.types :as types]
+    (merkledag.data.finance
+      [account :as account]
+      [schema :as schema]
+      [transaction :as tx]
+      [types :as types])
     [schema.core :as s]))
 
 
@@ -149,51 +152,11 @@
             :finance.account/book book)]))
 
 
-(defn interpolate-entries
-  "Fills in any missing transaction data by interpolating other entries."
-  [entries]
-  (let [missing-amounts (->> entries
-                             (filter (comp #{:finance.entry/posting} :data/type))
-                             (filter (complement :finance.posting/amount)))]
-    (cond
-      (zero? (count missing-amounts))
-        entries
-
-      (= 1 (count missing-amounts))
-        (let [[balance commodities]
-              (reduce (fn [[total cs] entry]
-                        (if-let [amount (:finance.posting/amount entry)]
-                          [(+ total (:value amount)) (conj cs (:commodity amount))]
-                          [total cs]))
-                      [0M #{}]
-                      entries)
-              [before [missing after]]
-              (split-with #(or (not= :finance.entry/posting (:data/type %))
-                               (:finance.posting/amount %))
-                          entries)]
-          (when (not= :finance.entry/posting (:data/type missing))
-            (throw (ex-info (str "Cannot infer missing amount for non-posting entry: " (:data/type missing))
-                            (:entries entries
-                             :missing missing))))
-          (when (< 1 (count commodities))
-            (throw (ex-info (str "Cannot infer missing posting amount when multiple commodities are in use: " commodities)
-                            {:entries entries
-                             :commodities commodities})))
-          (concat
-            before
-            [(assoc missing :finance.posting/amount (types/->Quantity (- balance) (first commodities)))]
-            after))
-
-      :else
-        (throw (ex-info "Cannot infer posting values when more than one is missing an amount"
-                        {:entries entries})))))
-
-
 (defmethod entry-updates :finance/transaction
   [db book transaction]
   (when-not book
     (throw (IllegalArgumentException. "Must provide book name to import transactions!")))
-  (let [entries (interpolate-entries (:finance.transaction/entries transaction))
+  (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db book) entries)
         entry-ids (set (map (comp :db/id first) updates))]
     (cons
@@ -206,23 +169,15 @@
 
 (defmethod entry-updates ::entry
   [db book entry]
-  ; TODO: factor this lookup out?
   (let [account-ref (:finance.entry/account entry)
-        attr-key (if (keyword? account-ref)
-                   :finance.account/alias
-                   :finance.account/path)
-        query {:find '[[?a]]
-               :in '[$ ?book ?id]
-               :where [['?a :finance.account/book '?book]
-                       ['?a attr-key '?id]]}
-        [account-id] (d/q query db book account-ref)]
-    (when-not account-id
+        account (account/find-account db book account-ref)]
+    (when-not account
       (throw (ex-info (str "No account found matching id: " (pr-str account-ref))
                       {:account account-ref})))
     (cons
       (-> entry
           (assoc :db/id (next-temp-id!)
-                 :finance.entry/account account-id)
+                 :finance.entry/account (:db/id account))
           (dissoc :data/sources)) ; FIXME: properly link these
       (when-let [invoice (:finance.posting/invoice entry)]
         (entry-updates db book invoice)))))
