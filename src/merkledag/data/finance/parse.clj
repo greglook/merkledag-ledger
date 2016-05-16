@@ -212,7 +212,7 @@
        (as-> commodity
          (let [fmt (::format commodity)]
            (if (and fmt (not (re-seq #"^\d" fmt)))
-             (assoc commodity :finance.commodity/currency-symbol (first fmt))
+             (assoc commodity :finance.commodity/currency-symbol (subs fmt 0 1))
              commodity)))
        (dissoc ::format ::options)))
 
