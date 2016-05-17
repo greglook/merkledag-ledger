@@ -36,20 +36,24 @@
   (-> (if zone
         (ftime/with-zone time-format zone)
         time-format)
-      (ftime/parse (str date "T" time))
-      #_ (time/to-time-zone time/utc)))
+      (ftime/parse (str date "T" time))))
 
 
 (defn- update-time
+  "Given an object with date information and potentially some time info, update
+  the time attribute with the date information or set it to the start of the
+  object's date."
   [obj time-key date-key]
-  (let [date (get obj date-key)
-        time (get obj time-key)]
-    (assoc obj
-      time-key
-      (if (and (vector? time) (= :Time (first time)))
-        (let [[_ time-str zone] time]
-          (parse-time date time-str zone))
-        (or time (ctime/to-date-time date))))))
+  (if-let [date (get obj date-key)]
+    (let [t (get obj time-key)]
+      (assoc obj
+        time-key
+        (if (and (vector? t) (= :Time (first t)))
+          (let [[_ time-str zone] t]
+            (parse-time date time-str zone))
+          (or t (time/from-time-zone (ctime/to-date-time date)
+                                     (time/default-time-zone))))))
+    obj))
 
 
 (defn- join-field
@@ -316,7 +320,7 @@
          (add-ranks :finance.transaction/entries :finance.entry/rank)))
 
    :TxFlag
-   (fn ->posting-status
+   (fn ->flag
      [chr]
      [:TxFlag (case chr "!" :pending, "*" :cleared, :uncleared)])
 
