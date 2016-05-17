@@ -27,6 +27,7 @@
 
 
 (defn cprint
+  "Pretty-prints a colored data structure value."
   [x]
   (puget/pprint
     x
@@ -58,6 +59,21 @@
   millisecond time and the symbol `ms`."
   [nanos]
   [(/ nanos 1000000.0) 'ms])
+
+
+(defn get-percentile
+  "Selects an element that is `p` percent through the given sequence."
+  [xs p]
+  (let [n (count xs)]
+    (cond
+      (= n 1)
+        (first xs)
+      (<= p 0.0)
+        (first xs)
+      (>= p 1.0)
+        (last xs)
+      :else
+        (nth xs (int (* p n))))))
 
 
 
@@ -194,7 +210,7 @@
      (try
        (let [tx-updates (fimport/with-context book
                           (->> entries
-                               (keep (partial fimport/entry-updates db book))
+                               (keep (partial fimport/entry-updates db))
                                (doall)))]
          (println)
          (println "Transaction updates:")
@@ -252,15 +268,10 @@
         (fn [nums]
           (if (= 1 (count nums))
             (nanos->ms (first nums))
-            (->> [1/4 2/4 3/4 4/4]
-                 (map #(cond
-                         (<= % 0.0)
-                           (first nums)
-                         (>= % 1.0)
-                           (last nums)
-                         :else
-                           (nth nums (int (* % (count nums))))))
-                 (mapv nanos->ms))))]
+            (->> [0.50 0.90 1.00]
+                 (map (partial get-percentile nums))
+                 (map nanos->ms)
+                 (mapv #(vec (cons %1 %2)) [:p50 :p90 :max]))))]
     (doseq [[stat numbers] stats]
       (when-not (= "finance.import" (namespace stat))
         (cprint [stat {:count (count numbers)
@@ -271,7 +282,7 @@
 (defn print-error
   [ex]
   (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
-  (some-> ex ex-data cprint))
+  (some-> ex ex-data (dissoc :schema) cprint))
 
 
 (defn load-commodities!
