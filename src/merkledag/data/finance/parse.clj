@@ -291,7 +291,7 @@
    :SourceMeta
    (fn ->source-meta
      [src line]
-     [:SourceMeta {:source src, :line line}])})
+     [:SourceMeta [src line]])})
 
 
 (def transaction-transforms
@@ -314,7 +314,6 @@
          (update-time :time/at :finance.transaction/date)
          (lift-meta :UUID :data/ident (partial str "finance:transaction:"))
          (lift-meta :link :finance.transaction/links hash-set)
-         ; TODO: (lift-meta :interval :time/interval ...)
          (distribute-attr :time/at :finance.transaction/entries)
          (dissoc :time/at)
          (add-ranks :finance.transaction/entries :finance.entry/rank)))
@@ -341,21 +340,24 @@
           (assoc-some
             :finance.posting/amount amount)
           (collect
-            {:finance.posting/cost     (collect-one :PostingLotCost)
-             :finance.posting/lot-date (collect-one :PostingLotDate)
-             :finance.posting/price    (collect-one :PostingPrice)
-             :finance.balance/amount   (collect-one :PostingBalance)
-             ::date                    (collect-one :PostingDate)
-             :time/at                  (collect-one :TimeMeta)
-             :data/sources             (collect-set :SourceMeta)
-             :data/tags                (collect-map :MetaEntry)
-             :description              (collect-all :MetaComment)
-             :finance.posting/invoice  (collect-all :LineItem)}
+            {:finance.entry/source-lines (collect-set :SourceMeta)
+             :finance.balance/amount     (collect-one :PostingBalance)
+             :finance.posting/cost       (collect-one :PostingLotCost)
+             :finance.posting/lot-date   (collect-one :PostingLotDate)
+             :finance.posting/price      (collect-one :PostingPrice)
+             :finance.posting/invoice    (collect-all :LineItem)
+             ::date                      (collect-one :PostingDate)
+             :time/at                    (collect-one :TimeMeta)
+             :data/tags                  (collect-map :MetaEntry)
+             :description                (collect-all :MetaComment)}
             children)
+          ; TODO: (lift-meta :interval :time/interval ...)
+          ; Default :time/at to the start of :time/interval if missing
           (update-time :time/at ::date)
           (dissoc ::date)
           (join-field :description "\n")
           (lift-meta :Payee :finance.posting/payee)
+          (lift-meta :external-id :finance.entry/external-id)
           (as-> posting
             (cond-> posting
               (seq (:finance.posting/invoice posting))

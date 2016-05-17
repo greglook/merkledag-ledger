@@ -454,6 +454,16 @@
     :db/valueType :db.type/ref
     :schema AccountRef}
 
+   :finance.entry/source-lines
+   {:db/doc "set of lines pulled from third-party sources that this entry represents"
+    :db/cardinality :db.cardinality/many
+    :schema #{[(s/one s/Keyword "source-tag") (s/one s/Str "line")]}}
+
+   :finance.entry/external-id
+   {:db/doc "string containing an external identifier for the entry, for deduplication"
+    :db/index true
+    :schema s/Str}
+
    :finance.entry/rank
    {:db/doc "extra numeric value to determine the ordering of entries with the same timestamp"
     :schema s/Num}})
