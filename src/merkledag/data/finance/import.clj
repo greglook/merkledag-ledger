@@ -98,6 +98,12 @@
                      :entry entry}))))
 
 
+(defmethod entry-updates nil
+  [db _]
+  ; Ignored
+  nil)
+
+
 (defmethod entry-updates ::ignored
   [db ignored]
   ; Ignored
@@ -180,14 +186,17 @@
     (throw (ex-info "Context must provide book name to import transaction entries!"
                     {:context *tx-context*})))
   (let [book (:book *tx-context*)
-        account (account/find-account! db book (:finance.entry/account entry))]
+        account (account/find-account! db book (:finance.entry/account entry))
+        invoice-updates (entry-updates db (:finance.posting/invoice entry))]
     (cons
       (-> entry
           (assoc :db/id (next-temp-id!)
                  :finance.entry/account (:db/id account))
-          (dissoc :data/sources)) ; FIXME: properly link these
-      (when-let [invoice (:finance.posting/invoice entry)]
-        (entry-updates db invoice)))))
+          (dissoc :data/sources) ; FIXME: properly link these
+          (cond->
+            (seq invoice-updates)
+              (assoc :finance.posting/invoice (:db/id (first invoice-updates)))))
+      invoice-updates)))
 
 
 (derive :finance.entry/note          ::entry)
