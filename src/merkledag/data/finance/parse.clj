@@ -75,6 +75,32 @@
      obj)))
 
 
+(defn- distribute-attr
+  "Distributes an attribute from a parent entity into a set of child entities,
+  keeping any values already present."
+  [x attr-key coll-key]
+  (if-let [x-attr (get x attr-key)]
+    (update
+      x coll-key
+      (partial mapv
+               (fn [entry]
+                 (if (some? (get entry attr-key))
+                   entry
+                   (assoc entry attr-key x-attr)))))
+    x))
+
+
+(defn- add-ranks
+  "Add rank attributes to a sequence in a sub-key."
+  [x coll-key rank-key]
+  (update
+    x coll-key
+    (partial mapv
+             (fn [i entry]
+               (assoc entry rank-key i))
+             (range))))
+
+
 (defn- assoc-some
   ([x k v]
    (if (some? v)
@@ -269,9 +295,7 @@
    (fn ->transaction
      [date & children]
      (-> {:data/type :finance/transaction
-          :finance.transaction/date date
-          ; TODO: should take into account timezone
-          :time/at (ctime/to-date-time date)}
+          :finance.transaction/date date}
          (collect
            {:title                       (collect-one :TxMemo)
             :description                 (collect-all :MetaComment)
@@ -286,16 +310,10 @@
          (update-time :time/at :finance.transaction/date)
          (lift-meta :UUID :data/ident (partial str "finance:transaction:"))
          (lift-meta :link :finance.transaction/links hash-set)
-         (as-> tx
-           (let [tx-time (:time/at tx)]
-             (-> tx
-                 (update :finance.transaction/entries
-                         (partial mapv #(if (:time/at %) % (assoc % :time/at tx-time))))
-                 (dissoc :time/at)))
-           (assoc tx :finance.transaction/entries
-                  (mapv #(assoc %1 :finance.entry/rank %2)
-                        (:finance.transaction/entries tx)
-                        (range))))))
+         ; TODO: (lift-meta :interval :time/interval ...)
+         (distribute-attr :time/at :finance.transaction/entries)
+         (dissoc :time/at)
+         (add-ranks :finance.transaction/entries :finance.entry/rank)))
 
    :TxFlag
    (fn ->posting-status
