@@ -6,6 +6,7 @@
 
 
 ; Static checks:
+; - must be at least one entry
 ; - all entry accounts belong to the same books
 ; - real posting weights must sum to zero
 

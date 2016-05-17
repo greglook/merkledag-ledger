@@ -9,6 +9,7 @@
 
 ; Book-level checks:
 ; - no account path should be a prefix of another account
+; - warn about accounts with no entries
 
 ; Historical checks:
 ; - account should only ever contain allowed commodities (move to posting?)
