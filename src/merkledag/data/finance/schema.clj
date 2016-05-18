@@ -390,15 +390,23 @@
 (def account-type-names
   "Set of names for some common account types."
   #{:cash
-    :checking
     :savings
+    :checking
+    :demand-deposit
     :certificate-of-deposit
     :brokerage
     :traditional-401k
     :roth-401k
     :traditional-ira
     :roth-ira
-    :bitcoin})
+    :health-savings
+    :credit-card
+    :mortgage
+    :student-loan
+    :loan
+    :reward-program
+    :bitcoin
+    :property})
 
 
 (defschema AccountTypeKey
