@@ -32,7 +32,7 @@
                           [total cs]))
                       [0M #{}]
                       entries)
-              [before [missing after]]
+              [before [missing & after]]
               (split-with #(or (not= :finance.entry/posting (:data/type %))
                                (:finance.posting/amount %))
                           entries)]

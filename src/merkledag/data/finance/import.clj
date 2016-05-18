@@ -157,6 +157,7 @@
   (let [book (:book *tx-context*)
         path (:finance.account/path account)
         extant (account/find-account db book path)]
+    #_
     (when extant
       (printf "%s %s -> %d (%s)\n"
               book (pr-str path) (:db/id extant) (:finance.account/book extant)))
@@ -168,15 +169,14 @@
 (defmethod entry-updates :finance/transaction
   [db transaction]
   (s/validate schema/Transaction transaction)
-  ; TODO: need to do deduplication here
+  ; TODO: do deduplication here?
   (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db) entries)
         entry-ids (set (map (comp :db/id first) updates))]
     (cons
-      (-> transaction
-          (assoc :db/id (next-temp-id!)
-                 :finance.transaction/entries entry-ids)
-          (dissoc :data/sources)) ; FIXME: properly link these
+      (assoc transaction
+             :db/id (next-temp-id!)
+             :finance.transaction/entries entry-ids)
       (apply concat updates))))
 
 
@@ -185,6 +185,7 @@
   (when-not (:book *tx-context*)
     (throw (ex-info "Context must provide book name to import transaction entries!"
                     {:context *tx-context*})))
+  ; TODO: do deduplication here?
   (let [book (:book *tx-context*)
         account (account/find-account! db book (:finance.entry/account entry))
         invoice-updates (entry-updates db (:finance.posting/invoice entry))]
@@ -192,7 +193,6 @@
       (-> entry
           (assoc :db/id (next-temp-id!)
                  :finance.entry/account (:db/id account))
-          (dissoc :data/sources) ; FIXME: properly link these
           (cond->
             (seq invoice-updates)
               (assoc :finance.posting/invoice (:db/id (first invoice-updates)))))
@@ -208,6 +208,7 @@
 
 (defmethod entry-updates :finance/invoice
   [db invoice]
+  ; TODO: if only one item with no price, use the posting price
   (let [item-updates (map (partial entry-updates db)
                           (:finance.invoice/items invoice))]
     (cons
