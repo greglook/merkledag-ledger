@@ -65,6 +65,8 @@
 
 
 (defn- lift-meta
+  ([obj meta-tag]
+   (lift-meta obj meta-tag meta-tag))
   ([obj meta-tag field-key]
    (lift-meta obj meta-tag field-key identity))
   ([obj meta-tag field-key f]
@@ -160,12 +162,12 @@
     (when-let [matches (seq (filter #(and (vector? %)
                                           (= k (first %)))
                                     children))]
-      (when-let [bad-children (seq (filter #(not= 3 (count %)) matches))]
+      (when-let [bad-children (seq (filter #(not= 2 (count %)) matches))]
         (throw (ex-info
                  (str "Cannot unbox " (count bad-children) " " (pr-str k)
                       " children which have the wrong entry counts")
                  {:key k, :bad-children bad-children})))
-      (into {} (map (comp vec rest) matches)))))
+      (into {} (map second matches)))))
 
 
 (defn- collect
@@ -235,9 +237,10 @@
        {:data/type :finance/commodity
         :finance.commodity/code code}
        (collect
-         {:title    (collect-one :CommodityNote)
-          ::format  (collect-one :CommodityFormat)
-          ::options (collect-all :CommodityOption)}
+         {:title     (collect-one :NoteDirective)
+          :data/tags (collect-map :MetaDirective)
+          ::format   (collect-one :CommodityFormat)
+          ::options  (collect-all :CommodityOption)}
          children)
        (as-> commodity
          (let [fmt (::format commodity)]
@@ -263,30 +266,37 @@
    :AccountDefinition
    (fn ->account-definition
      [path & children]
-     (let [data (collect
-                  {:data/type :finance/account
-                   :title (last path)
-                   :finance.account/path path}
-                  {:finance.account/alias (collect-one :AccountAliasDirective)
-                   ::assertion            (collect-one :AccountAssertion)
-                   :description           (collect-one :AccountNote)}
-                  children)
-           assertion (::assertion data)]
-       (dissoc
-         (if-let [match (and assertion (re-find #"commodity == \"(\S+)\""
-                                                assertion))]
-           (assoc data :finance.account/allowed-commodities
-                  #{((commodity-transforms :CommodityCode) (second match))})
-           data)
-         ::assertion)))})
+     (->
+       {:data/type :finance/account
+        :title (last path)
+        :finance.account/path path}
+       (collect
+         {:finance.account/alias (collect-one :AccountAliasDirective)
+          ::assertion            (collect-one :AccountAssertion)
+          :description           (collect-all :NoteDirective)
+          :data/tags             (collect-map :MetaDirective)}
+         children)
+       (join-field :description "\n")
+       (lift-meta :title)
+       (lift-meta :type :finance.account/type (partial keyword "finance.account.type"))
+       (lift-meta :external-id :finance.account/external-id)
+       (as-> account
+         (if-let [commodities (some->>
+                                (::assertion account)
+                                (re-seq #"commodity == \"(\S+)\"")
+                                (map (comp (commodity-transforms :CommodityCode) second))
+                                (set))]
+           (assoc account :finance.account/allowed-commodities commodities)
+           account))
+       (dissoc ::assertion)))})
 
 
 (def metadata-transforms
   {:TagName keyword
-   :MetaEntry
-   (fn ->meta-entry
-     ([k]   [:MetaEntry k true])
-     ([k v] [:MetaEntry k v]))
+   :MetaTag
+   (fn ->meta
+     ([k]   [k true])
+     ([k v] [k v]))
 
    :SourceMeta
    (fn ->source-meta

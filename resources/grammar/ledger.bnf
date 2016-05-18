@@ -49,17 +49,23 @@ CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
 CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
 IncludeFile = <'include '> , #"\S+" , NL ;
 
+(* Standard Metadata *)
+TagName = #"[a-zA-Z0-9-]+" ;
+MetaTag = <':'> , TagName , <':'> | TagName , <': '> , Text ;
+
+(* Directive Metadata *)
+MetaDirective = <'note '> , MetaTag ;
+NoteDirective = <'note '> , !MetaTag , Text ;
+
 (* Account Definitions *)
 AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
-<AccountDirective> = Indent , ( AccountAliasDirective | AccountNote | AccountAssertion ) , NL ;
+<AccountDirective> = Indent , ( AccountAliasDirective | AccountAssertion | MetaDirective | NoteDirective ) , NL ;
 AccountAliasDirective = <'alias '> , AccountAlias ;
-AccountNote = <'note '> , Text ;
 AccountAssertion = <'assert '> , Text ;
 
 (* Commodity Definitions *)
 CommodityDefinition = <'commodity '> , CommodityCode , NL , CommodityDirective* ;
-<CommodityDirective> = Indent , ( CommodityNote | CommodityFormat | CommodityOption ) , NL ;
-CommodityNote = <'note '> , Text ;
+<CommodityDirective> = Indent , ( CommodityFormat | CommodityOption | MetaDirective | NoteDirective ) , NL ;
 CommodityFormat = <'format '> , Text ;
 CommodityOption = 'nomarket' | 'default' ;
 
@@ -67,9 +73,7 @@ CommodityOption = 'nomarket' | 'default' ;
 CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
 CommodityPrice = <'P '> , ( Date | DateTime ) , <' '+> , CommodityCode , <' '+> , Quantity , NL ;
 
-(* Standard Metadata *)
-TagName = #"[a-zA-Z0-9-]+" ;
-
+(* History Metadata *)
 TimeMetaTag = 'time: ' ;
 TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 
@@ -79,8 +83,8 @@ SourceMeta = <SourceMetaTag> , TagName , <'|'> , Text ;
 LineItemTag = 'item: ' ;
 
 SpecialMetaTag = TimeMetaTag | SourceMetaTag | LineItemTag ;
-MetaEntry = !SpecialMetaTag , ( <':'> , TagName , <':'> | TagName , <': '> , Text ) ;
-MetaComment = !( SpecialMetaTag | MetaEntry ) , Text ;
+MetaEntry = !SpecialMetaTag , MetaTag ;
+MetaComment = !( SpecialMetaTag | MetaTag ) , Text ;
 
 (* Transactions *)
 Transaction = Date ,
