@@ -221,26 +221,54 @@
          (print-cause-trace e))))))
 
 
+(defn print-stats
+  "Prints out the stat maps returned by `load-ledger!` in a human-readable
+  format."
+  [stats]
+  (let [get-ps
+        (fn [nums]
+          (if (= 1 (count nums))
+            (nanos->ms (first nums))
+            (->> [0.50 0.90 1.00]
+                 (map (partial get-percentile nums))
+                 (map nanos->ms)
+                 (mapv #(vec (cons %1 %2)) [:p50 :p90 :max]))))]
+    (doseq [[stat numbers] stats]
+      (when-not (= "finance.import" (namespace stat))
+        (if (number? numbers)
+          (cprint [stat numbers])
+          (cprint [stat {:count (count numbers)
+                         :parse (get-ps (sort (map :parse numbers)))
+                         :load  (get-ps (sort (map :load numbers)))}]))))))
+
+
 (defn measured-import!
   "Accepts a chunk of text to parse and import into the database. Updates the
   given stats map with a datapoint measuring the nanoseconds taken to parse and
   load the entries. Returns the updated stats map."
   [book stats text]
-  (let [parse-start (System/nanoTime)
-        entries (parse/parse-group text)
-        parse-elapsed (- (System/nanoTime) parse-start)]
-    (reduce
-      (fn measure-load
-        [stats entry]
-        (let [type-key (fimport/import-dispatch nil entry)
-              load-start (System/nanoTime)]
-          (fimport/load-entry! db/conn book entry)
-          (update stats type-key
-                  (fnil conj [])
-                  {:parse parse-elapsed
-                   :load (- (System/nanoTime) load-start)})))
-      stats
-      entries)))
+  (try
+    (let [parse-start (System/nanoTime)
+          entries (parse/parse-group text)
+          parse-elapsed (- (System/nanoTime) parse-start)]
+      (reduce
+        (fn measure-load
+          [stats entry]
+          (let [type-key (fimport/import-dispatch nil entry)
+                load-start (System/nanoTime)]
+            (fimport/load-entry! db/conn book entry)
+            (update stats type-key
+                    (fnil conj [])
+                    {:parse parse-elapsed
+                     :load (- (System/nanoTime) load-start)})))
+        stats
+        entries))
+    (catch Exception ex
+      (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
+      (some-> ex ex-data (dissoc :schema) cprint)
+      (println)
+      (println text)
+      (update stats :errors (fnil inc 0)))))
 
 
 (defn load-ledger!
@@ -260,51 +288,18 @@
       (reduce (partial measured-import! book) (sorted-map)))))
 
 
-(defn print-stats
-  "Prints out the stat maps returned by `load-ledger!` in a human-readable
-  format."
-  [stats]
-  (let [get-ps
-        (fn [nums]
-          (if (= 1 (count nums))
-            (nanos->ms (first nums))
-            (->> [0.50 0.90 1.00]
-                 (map (partial get-percentile nums))
-                 (map nanos->ms)
-                 (mapv #(vec (cons %1 %2)) [:p50 :p90 :max]))))]
-    (doseq [[stat numbers] stats]
-      (when-not (= "finance.import" (namespace stat))
-        (cprint [stat {:count (count numbers)
-                       :parse (get-ps (sort (map :parse numbers)))
-                       :load  (get-ps (sort (map :load numbers)))}])))))
-
-
-(defn print-error
-  [ex]
-  (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
-  (some-> ex ex-data (dissoc :schema) cprint))
-
-
 (defn load-commodities!
   [ledger-root]
   (println "Loading commodity definitions...")
-  (try
-    (let [path (str ledger-root "/commodities.ledger")]
-      (time (print-stats (load-ledger! nil path))))
-    (catch Exception ex
-      (print-error ex)
-      (throw ex))))
+  (let [path (str ledger-root "/commodities.ledger")]
+    (time (print-stats (load-ledger! nil path)))))
 
 
 (defn load-prices!
   [ledger-root]
   (println "Loading price history...")
-  (try
-    (let [path (str ledger-root "/prices.dat")]
-      (time (print-stats (load-ledger! nil path :price-db true))))
-    (catch Exception ex
-      (print-error ex)
-      (throw ex))))
+  (let [path (str ledger-root "/prices.dat")]
+    (time (print-stats (load-ledger! nil path :price-db true)))))
 
 
 (defn load-books!
@@ -317,12 +312,8 @@
       (doseq [file book-files]
         (let [relpath (subs (str file) (inc (count (str book-dir))))]
           (println "Loading" book "book file" relpath "..."))
-        (try
-          (time (print-stats (load-ledger! book file)))
-          (println)
-          (catch Exception ex
-            (print-error ex)
-            (throw ex)))))))
+        (time (print-stats (load-ledger! book file)))
+        (println)))))
 
 
 (defn load-all!
