@@ -242,11 +242,14 @@
           ::format   (collect-one :CommodityFormat)
           ::options  (collect-all :CommodityOption)}
          children)
+       (lift-meta :type :finance.commodity/type (partial keyword "finance.commodity.type"))
+       ; TODO: load asset class and sectors
        (as-> commodity
          (let [fmt (::format commodity)]
            (if (and fmt (not (re-seq #"^\d" fmt)))
              (assoc commodity :finance.commodity/currency-symbol (subs fmt 0 1))
              commodity)))
+       ; These are unused at the moment.
        (dissoc ::format ::options)))
 
    :CommodityPrice

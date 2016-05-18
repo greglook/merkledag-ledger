@@ -249,6 +249,21 @@
 
 ;; ## Commodities
 
+(def commodity-type-names
+  "Set of names for some common commodity types."
+  #{:currency
+    :bond
+    :stock
+    :mutual-fund
+    :exchange-traded-fund
+    :reward-points})
+
+
+(defschema CommodityTypeKey
+  "Schema for a keyword identifying a commodity type."
+  (constrained-keyword "finance.commodity.type" commodity-type-names))
+
+
 (defschema CommodityCode
   "Schema for a symbol identifying a commodity."
   (s/constrained s/Symbol #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %))))
@@ -264,6 +279,10 @@
    :finance.commodity/currency-symbol
    {:db/doc "one-character string to prefix currency amounts with"
     :schema (s/constrained s/Str #(= 1 (count %)))}
+
+   :finance.commodity/type
+   {:db/doc "type of value that this commodity represents"
+    :schema CommodityTypeKey}
 
    :finance.commodity/asset-class
    {:db/doc "map of asset class breakdowns or single class keyword"
