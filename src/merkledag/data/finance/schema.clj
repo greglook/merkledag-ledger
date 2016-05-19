@@ -461,7 +461,13 @@
    :finance.account/allowed-commodities
    {:db/doc "set of commodities which are valid for the account to contain"
     :db/cardinality :db.cardinality/many
-    :schema #{CommodityCode}}})
+    :schema #{CommodityCode}}
+
+   :finance.account/links
+   {:db/doc "string identifiers linking related accounts together"
+    :db/cardinality :db.cardinality/many
+    :db/index true
+    :schema #{s/Str}}})
 
 
 (defschema AccountDefinition

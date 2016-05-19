@@ -283,6 +283,7 @@
        (lift-meta :title)
        (lift-meta :type :finance.account/type (partial keyword "finance.account.type"))
        (lift-meta :external-id :finance.account/external-id)
+       (lift-meta :link :finance.account/links hash-set)
        (as-> account
          (if-let [commodities (some->>
                                 (::assertion account)
