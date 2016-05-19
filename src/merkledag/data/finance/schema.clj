@@ -1,59 +1,5 @@
 (ns merkledag.data.finance.schema
-  "Schema definitions for a full financial system structure.
-
-  ```
-  /<ref-name>/ -> FinanceRoot
-    inputs/
-      new/ -> DataQueue
-      review/ -> DataQueue
-      ...
-    commodities/ -> CommodityData
-      <commodity-symbol> -> CommodityDefinition
-      ...
-    prices/ -> PriceData
-      <commodity-symbol>/
-        <year> -> PriceHistory
-        ...
-      ...
-    books/
-      <book-name>/ -> Books
-        accounts/
-          assets/... -> AccountDefinition
-          liabilities/...
-          income/...
-          expenses/...
-          ...
-        ledger/ -> LedgerData
-          <year>/<month>/<day>/ -> LedgerHistory
-            tx-01/ -> Transaction
-              posting-01/ -> Posting
-                invoice/ -> Invoice
-                  item-01 -> LineItem
-                  item-02
-                  item-03
-                  ...
-              posting-02/...
-              ...
-            tx-02/...
-            ...
-          <year>/...
-      <book-name>/
-        accounts/...
-        ledger/...
-      ...
-  ```
-
-  Some example paths:
-
-  ```
-  /commodities/USD
-  /prices/AMZN/2014
-  /books/mine/accounts/assets/cash/bank/savings
-  /books/house/accounts/income/rent/monthly
-  /books/joint/ledger/2011/03/17/tx-04
-  /books/joint/ledger/2013/10/01/tx-01/posting-02/invoice/image
-  ```
-  "
+  "Schema definitions for entities in the financial system."
   (:require
     [merkledag.data.finance.types :as types]
     [merkledag.link :as link]
@@ -110,26 +56,6 @@
      :schema org.joda.time.Interval}})
 
 
-#_
-(def csv-attrs
-  "Definitions for comma-separated value attributes."
-  {:csv/line
-   {:db/doc "original line of data parsed into the CSV"
-    :schema s/Str}
-
-   :csv/headers
-   {:db/doc "original header line string"
-    :schema s/Str}
-
-   :csv/source-tag
-   {:db/doc "keyword tag for the source of the data"
-    :schema s/Keyword}
-
-   :csv/data
-   {:db/doc "map of parsed header/data pairs"
-    :schema {s/Keyword s/Str}}})
-
-
 
 ;; ## Helper Functions
 
@@ -180,6 +106,8 @@
 
 
 ;; ## Asset Classes
+
+; TODO: record tree structure here
 
 (def asset-class-names
   "Set of names for some common asset classes."
@@ -646,7 +574,6 @@
   database from."
   (merge general-attrs
          time-attrs
-         #_ csv-attrs
          commodity-attrs
          price-attrs
          item-attrs
