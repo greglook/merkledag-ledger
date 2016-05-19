@@ -39,6 +39,15 @@
       (ftime/parse (str date "T" time))))
 
 
+(defn- date->time
+  "Converts a `LocalDate` value into a `DateTime` representing midnight on
+  that calendar date in the default time zone."
+  [date]
+  (-> date
+      (ctime/to-date-time)
+      (time/from-time-zone (time/default-time-zone))))
+
+
 (defn- update-time
   "Given an object with date information and potentially some time info, update
   the time attribute with the date information or set it to the start of the
@@ -51,8 +60,7 @@
         (if (and (vector? t) (= :Time (first t)))
           (let [[_ time-str zone] t]
             (parse-time date time-str zone))
-          (or t (time/from-time-zone (ctime/to-date-time date)
-                                     (time/default-time-zone))))))
+          (or t (date->time date)))))
     obj))
 
 
@@ -256,7 +264,7 @@
    (fn ->commodity-price
      [date code price]
      {:data/type :finance/price
-      :time/at (ctime/to-date-time date)
+      :time/at (date->time date)
       :finance.price/commodity code
       :finance.price/value price})})
 
