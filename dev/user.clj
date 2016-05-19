@@ -265,9 +265,9 @@
         entries))
     (catch Exception ex
       (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
+      (println text)
       (some-> ex ex-data (dissoc :schema) cprint)
       (println)
-      (println text)
       (update stats :errors (fnil inc 0)))))
 
 

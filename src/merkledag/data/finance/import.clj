@@ -40,10 +40,14 @@
 
 
 (defn- id-or-temp!
-  "If the given entity exists and contains a `:db/id` field, the value is
-  returned. Otherwise, a temporary id is generated."
+  "If the given entity exists and is either a numeric id or contains a `:db/id`
+  entry, the id is returned. Otherwise, this function generates and returns a
+  temporary id."
   [entity]
-  (or (:db/id entity) (next-temp-id!)))
+  (cond
+    (number? entity) entity
+    (:db/id entity)  (:db/id entity)
+    :else            (next-temp-id!)))
 
 
 (defn- rand-hex
@@ -157,10 +161,9 @@
   (let [book (:book *tx-context*)
         path (:finance.account/path account)
         extant (account/find-account db book path)]
-    #_
     (when extant
-      (printf "%s %s -> %d (%s)\n"
-              book (pr-str path) (:db/id extant) (:finance.account/book extant)))
+      (printf "WARN: duplicate account declaration in book %s for account %s (%d)\n"
+              book (str/join ":" path) (:db/id extant)))
     [(assoc account
             :db/id (id-or-temp! extant)
             :finance.account/book book)]))
@@ -169,7 +172,6 @@
 (defmethod entry-updates :finance/transaction
   [db transaction]
   (s/validate schema/Transaction transaction)
-  ; TODO: do deduplication here?
   (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db) entries)
         entry-ids (set (map (comp :db/id first) updates))]
@@ -185,7 +187,7 @@
   (when-not (:book *tx-context*)
     (throw (ex-info "Context must provide book name to import transaction entries!"
                     {:context *tx-context*})))
-  ; TODO: do deduplication here?
+  (s/validate schema/JournalEntry entry)
   (let [book (:book *tx-context*)
         account (account/find-account! db book (:finance.entry/account entry))
         invoice-updates (entry-updates db (:finance.posting/invoice entry))]
@@ -208,7 +210,7 @@
 
 (defmethod entry-updates :finance/invoice
   [db invoice]
-  ; TODO: if only one item with no price, use the posting price
+  (s/validate schema/Invoice invoice)
   (let [item-updates (map (partial entry-updates db)
                           (:finance.invoice/items invoice))]
     (cons
@@ -220,4 +222,5 @@
 
 (defmethod entry-updates :finance/item
   [db item]
+  (s/validate schema/LineItem item)
   [(assoc item :db/id (next-temp-id!))])
