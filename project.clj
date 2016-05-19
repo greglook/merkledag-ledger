@@ -19,7 +19,7 @@
 
   :hiera
   {:vertical false
-   :cluster-depth 3
+   :cluster-depth 4
    :ignore-ns #{clojure}
    :show-external false}
 

@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.parse
+(ns merkledag.data.finance.ledger.parse
   "Ledger file parsing code."
   (:require
     (clj-time

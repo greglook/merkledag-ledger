@@ -18,9 +18,9 @@
     (merkledag.data.finance
       [account :as account]
       [load :as load]
-      [parse :as parse]
       [schema :as schema]
       [transaction :as transaction])
+    [merkledag.data.finance.ledger.parse :as parse]
     [puget.printer :as puget]
     [schema.core :as s]
     [user.db :as db]))
