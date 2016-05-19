@@ -7,11 +7,12 @@
 ; Static checks:
 ; - schema validates
 
-; Book-level checks:
-; - no account path should be a prefix of another account
-; - warn about accounts with no entries
-
 ; Historical checks:
+; - warn about accounts with no entries?
+; - first entry must be an open-account entry
+; - there must be AT MOST one open-account entry
+; - if closed, last entry must be a close-account entry
+; - there must be AT MOST one close-account entry
 ; - account should only ever contain allowed commodities (move to posting?)
 
 
@@ -40,4 +41,31 @@
                       {:error :not-found, :account account-ref}))))
 
 
-; TODO: get an account's register
+(defn open-entry
+  "Returns the entry opening the given account."
+  [db account]
+  (when-let [account (if (number? account) account (:db/id account))]
+    (->>
+      (d/q '[:find [?e]
+             :in $ ?a
+             :where [?e :data/type :finance.entry/open-account]
+                    [?e :finance.entry/account ?a]]
+           db account)
+      (first)
+      (d/entity db))))
+
+
+(defn get-register
+  "Returns a sequence of ordered entry entities for the given account. The
+  `account` arg may be an entity or id."
+  [db account]
+  (when-let [account (if (number? account) account (:db/id account))]
+    (->>
+      (d/q '[:find ?e ?time ?rank
+             :in $ ?a
+             :where [?e :finance.entry/account ?a]
+                    [?e :finance.entry/rank ?rank]
+                    [?e :time/at ?time]]
+           db account)
+      (sort-by (comp vec rest))
+      (map (comp (partial d/entity db) first)))))
