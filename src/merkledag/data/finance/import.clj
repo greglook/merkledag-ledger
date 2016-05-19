@@ -137,19 +137,11 @@
       (throw (ex-info (str "Cannot import price for nonexistent commodity " code)
                       {:commodity code
                        :entry price})))
-    (let [inst (ctime/to-date-time (:time/at price))
-          [extant] (d/q '[:find [?p]
-                          :in $ ?code ?time
-                          :where [?c :finance.commodity/code ?code]
-                                 [?p :finance.price/commodity ?c]
-                                 [?p :data/type :finance/price]
-                                 [?p :time/at ?time]]
-                        db code inst)]
-      [{:db/id (id-or-temp! {:db/id extant})
-        :data/type :finance/price
-        :finance.price/commodity (:db/id commodity)
-        :finance.price/value value
-        :time/at inst}])))
+    [{:db/id (next-temp-id!)
+      :data/type :finance/price
+      :finance.price/commodity (:db/id commodity)
+      :finance.price/value value
+      :time/at (:time/at price)}]))
 
 
 (defmethod entry-updates :finance/account
