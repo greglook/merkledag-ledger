@@ -1,11 +1,9 @@
-(ns merkledag.data.finance.import
-  "Functions to integrate incoming (and incomplete) data into the financial
-  database. Import takes a _raw entry_ and the current database and returns a
-  set of transactions to import the data represented by the entry."
+(ns merkledag.data.finance.load
+  "Functions to load structured data into the financial database. Loading takes
+  an _entry_ and the current database and returns a set of transactions to add
+  the data represented by the entry. This is distinct from _importing_ data,
+  which involves parsing raw CSV lines and such."
   (:require
-    (clj-time
-      [coerce :as ctime]
-      [core :as time])
     [clojure.string :as str]
     [datascript.core :as d]
     (merkledag.data.finance
@@ -68,7 +66,7 @@
 
 ;; ## Data Integration
 
-(defn import-dispatch
+(defn entry-dispatch
   "Selects an integration dispatch value based on the argument type."
   [db entry]
   (if (vector? entry)
@@ -80,7 +78,7 @@
   "Generates and returns a sequence of datums which can be transacted onto the
   database to integrate the given entry. The first update in the list should
   correspond to the entry in the argument."
-  #'import-dispatch)
+  #'entry-dispatch)
 
 
 (defn load-entry!
@@ -96,7 +94,7 @@
 
 (defmethod entry-updates :default
   [db entry]
-  (let [entry-type (import-dispatch db entry)]
+  (let [entry-type (entry-dispatch db entry)]
     (throw (ex-info (str "Unsupported entry type: " entry-type)
                     {:type entry-type
                      :entry entry}))))

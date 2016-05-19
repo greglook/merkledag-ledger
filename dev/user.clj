@@ -17,7 +17,7 @@
     [merkledag.data.finance :as finance]
     (merkledag.data.finance
       [account :as account]
-      [import :as fimport]
+      [load :as load]
       [parse :as parse]
       [schema :as schema]
       [transaction :as transaction])
@@ -208,9 +208,9 @@
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
      (try
-       (let [tx-updates (fimport/with-context book
+       (let [tx-updates (load/with-context book
                           (->> entries
-                               (keep (partial fimport/entry-updates db))
+                               (keep (partial load/entry-updates db))
                                (doall)))]
          (println)
          (println "Transaction updates:")
@@ -254,9 +254,9 @@
       (reduce
         (fn measure-load
           [stats entry]
-          (let [type-key (fimport/import-dispatch nil entry)
+          (let [type-key (load/entry-dispatch nil entry)
                 load-start (System/nanoTime)]
-            (fimport/load-entry! db/conn book entry)
+            (load/load-entry! db/conn book entry)
             (update stats type-key
                     (fnil conj [])
                     {:parse parse-elapsed
