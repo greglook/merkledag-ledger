@@ -378,6 +378,7 @@
           (update-time :time/at ::date)
           (dissoc ::date)
           (join-field :description "\n")
+          (lift-meta :type :data/type (partial keyword "finance.entry"))
           (lift-meta :Payee :finance.posting/payee)
           (lift-meta :external-id :finance.entry/external-id)
           (as-> posting
@@ -394,12 +395,17 @@
                                                      (range))})
               (= posting-type :virtual)
                 (assoc :finance.posting/virtual true)
-              (and (or (nil? (first (:form amount)))
-                       (zero? (first (:form amount))))
+              ; Automatically detect balance-check entries.
+              (and (or (nil? (:value amount))
+                       (zero? (:value amount)))
                    (= :balanced-virtual posting-type)
                    (:finance.balance/amount posting))
                 (-> (assoc :data/type :finance.entry/balance-check)
-                    (dissoc :finance.posting/amount))))
+                    (dissoc :finance.posting/amount))
+              ; If type is overridden and amount is zero, remove it.
+              (and (not= :finance.entry/posting (:data/type posting))
+                   (zero? (:value amount)))
+                (dissoc :finance.posting/amount)))
           (dissoc ::lot-cost ::lot-date))]))
 
    :LineItemTaxGroup keyword
