@@ -364,10 +364,10 @@
           (collect
             {:finance.entry/source-lines (collect-set :SourceMeta)
              :finance.balance/amount     (collect-one :PostingBalance)
-             :finance.posting/cost       (collect-one :PostingLotCost)
-             :finance.posting/lot-date   (collect-one :PostingLotDate)
              :finance.posting/price      (collect-one :PostingPrice)
              :finance.posting/invoice    (collect-all :LineItem)
+             ::lot-cost                  (collect-one :PostingLotCost)
+             ::lot-date                  (collect-one :PostingLotDate)
              ::date                      (collect-one :PostingDate)
              :time/at                    (collect-one :TimeMeta)
              :data/tags                  (collect-map :MetaEntry)
@@ -382,6 +382,10 @@
           (lift-meta :external-id :finance.entry/external-id)
           (as-> posting
             (cond-> posting
+              (::lot-cost posting)
+                (update :finance.posting/cost assoc :cost (::lot-cost posting))
+              (::lot-date posting)
+                (update :finance.posting/cost assoc :date (::lot-date posting))
               (seq (:finance.posting/invoice posting))
                 (assoc :finance.posting/invoice
                        {:data/type :finance/invoice
@@ -395,7 +399,8 @@
                    (= :balanced-virtual posting-type)
                    (:finance.balance/amount posting))
                 (-> (assoc :data/type :finance.entry/balance-check)
-                    (dissoc :finance.posting/amount)))))]))
+                    (dissoc :finance.posting/amount))))
+          (dissoc ::lot-cost ::lot-date))]))
 
    :LineItemTaxGroup keyword
    :LineItemTaxGroups

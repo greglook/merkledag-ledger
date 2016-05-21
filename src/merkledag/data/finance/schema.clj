@@ -228,7 +228,7 @@
 
 
 
-;; ## Prices
+;; ## Prices and Lots
 
 (def price-attrs
   "Datascript attribute schemas for commodity price points."
@@ -248,6 +248,13 @@
     price-attrs [:finance.price/commodity
                  :finance.price/value]
     time-attrs [:time/at]))
+
+
+(defschema LotCost
+  "Schema for the cost and lot identifiers associated with a position."
+  {:amount Quantity
+   (s/optional-key :date) LocalDate
+   (s/optional-key :label) s/Str})
 
 
 
@@ -492,18 +499,10 @@
             the price, an explicit balance weight can be given"
     :schema Quantity}
 
-   :finance.posting/lot
-   {:db/doc "reference to the posting which established the position this posting is altering"
-    :db/valueType :db.type/ref
-    :schema MerkleLink}
-
-   :finance.posting/lot-date
-   {:db/doc "date used to establish the lot"
-    :schema LocalDate}
-
    :finance.posting/cost
-   {:db/doc "amount per unit that the commodity amount originally cost"
-    :schema Quantity}
+   {:db/doc "reference to the posting which established the position this posting is altering"
+    ;:db/valueType :db.type/ref
+    :schema LotCost}
 
    :finance.posting/invoice
    {:db/doc "reference to an itemized list for the posting amount"
