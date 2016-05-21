@@ -104,17 +104,6 @@
     x))
 
 
-(defn- add-ranks
-  "Add rank attributes to a sequence in a sub-key."
-  [x coll-key rank-key]
-  (update
-    x coll-key
-    (partial mapv
-             (fn [i entry]
-               (assoc entry rank-key i))
-             (range))))
-
-
 (defn- assoc-some
   ([x k v]
    (if (some? v)
@@ -337,8 +326,7 @@
          (lift-meta :UUID :data/ident (partial str "finance:transaction:"))
          (lift-meta :link :finance.transaction/links hash-set)
          (distribute-attr :time/at :finance.transaction/entries)
-         (dissoc :time/at)
-         (add-ranks :finance.transaction/entries :finance.entry/rank)))
+         (dissoc :time/at)))
 
    :TxFlag
    (fn ->flag
@@ -390,9 +378,7 @@
               (seq (:finance.posting/invoice posting))
                 (assoc :finance.posting/invoice
                        {:data/type :finance/invoice
-                        :finance.invoice/items (mapv #(assoc %1 :finance.item/rank %2)
-                                                     (:finance.posting/invoice posting)
-                                                     (range))})
+                        :finance.invoice/items (vec (:finance.posting/invoice posting))})
               (= posting-type :virtual)
                 (assoc :finance.posting/virtual true)
               ; Automatically detect balance-check entries.

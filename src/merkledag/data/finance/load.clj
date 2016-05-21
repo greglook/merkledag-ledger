@@ -165,11 +165,12 @@
   (s/validate schema/Transaction transaction)
   (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db) entries)
-        entry-ids (set (map (comp :db/id first) updates))]
+        entry-ids (map (comp :db/id first) updates)]
     (cons
       (assoc transaction
              :db/id (next-temp-id!)
-             :finance.transaction/entries entry-ids)
+             :finance.transaction/entries (set entry-ids)
+             :finance.transaction/entry-order (vec entry-ids))
       (apply concat updates))))
 
 
@@ -177,14 +178,22 @@
   "Applies common updates to a transaction entry. Returns the entry value with
   a temporary `:db/id` and corrected account reference."
   [db entry]
-  (if-let [book (:book *tx-context*)]
-    (let [account-ref (:finance.entry/account entry)
-          account (account/find-account! db book account-ref)]
-      (assoc entry
-             :db/id (next-temp-id!)
-             :finance.entry/account (:db/id account)))
+  (when-not (:book *tx-context*)
     (throw (ex-info "Context must provide book name to import transaction entries!"
-                    {:context *tx-context*}))))
+                    {:context *tx-context*})))
+  (let [account-ref (:finance.entry/account entry)
+        account (account/find-account! db (:book *tx-context*) account-ref)
+        entry' (assoc entry
+                      :db/id (next-temp-id!)
+                      :finance.entry/account (:db/id account))]
+    (if (:finance.entry/rank entry')
+      entry'
+      (let [[rank] (d/q '[:find [(count ?e)]
+                          :in $ ?account ?time
+                          :where [?e :time/at ?time]
+                                 [?e :finance.entry/account ?account]]
+                        db (:db/id account) (:time/at entry))]
+        (assoc entry' :finance.entry/rank rank)))))
 
 
 (defmethod entry-updates :finance.entry/posting
@@ -224,11 +233,13 @@
   [db invoice]
   (s/validate schema/Invoice invoice)
   (let [item-updates (map (partial entry-updates db)
-                          (:finance.invoice/items invoice))]
+                          (:finance.invoice/items invoice))
+        item-ids (map (comp :db/id first) item-updates)]
     (cons
       (assoc invoice
              :db/id (next-temp-id!)
-             :finance.invoice/items (set (map (comp :db/id first) item-updates)))
+             :finance.invoice/items (set item-ids)
+             :finance.invoice/item-order (vec item-ids))
       (apply concat item-updates))))
 
 
