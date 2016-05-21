@@ -4,6 +4,7 @@
   the data represented by the entry. This is distinct from _importing_ data,
   which involves parsing raw CSV lines and such."
   (:require
+    [clj-time.core :as time]
     [clojure.string :as str]
     [datascript.core :as d]
     (merkledag.data.finance
@@ -172,30 +173,51 @@
       (apply concat updates))))
 
 
+(defn- update-transaction-entry
+  "Applies common updates to a transaction entry. Returns the entry value with
+  a temporary `:db/id` and corrected account reference."
+  [db entry]
+  (if-let [book (:book *tx-context*)]
+    (let [account-ref (:finance.entry/account entry)
+          account (account/find-account! db book account-ref)]
+      (assoc entry
+             :db/id (next-temp-id!)
+             :finance.entry/account (:db/id account)))
+    (throw (ex-info "Context must provide book name to import transaction entries!"
+                    {:context *tx-context*}))))
+
+
+(defmethod entry-updates :finance.entry/posting
+  [db posting]
+  (s/validate schema/Posting posting)
+  (let [posting (update-transaction-entry db posting)
+        invoice-updates (entry-updates db (:finance.posting/invoice posting))]
+    (cons
+      (cond-> posting
+        ; if price but no cost, infer
+        (and (:finance.posting/price posting)
+             (nil? (:finance.posting/cost posting)))
+          (assoc :finance.posting/cost
+                 {:cost (:finance.posting/price posting)
+                  :date (->> (:time/at posting)
+                             ((juxt time/year time/month time/day))
+                             (apply time/local-date))})
+        ; link to invoice if items are present
+        (seq invoice-updates)
+          (assoc :finance.posting/invoice (:db/id (first invoice-updates))))
+      invoice-updates)))
+
+
 (defmethod entry-updates ::entry
   [db entry]
-  (when-not (:book *tx-context*)
-    (throw (ex-info "Context must provide book name to import transaction entries!"
-                    {:context *tx-context*})))
   (s/validate schema/JournalEntry entry)
-  (let [book (:book *tx-context*)
-        account (account/find-account! db book (:finance.entry/account entry))
-        invoice-updates (entry-updates db (:finance.posting/invoice entry))]
-    (cons
-      (-> entry
-          (assoc :db/id (next-temp-id!)
-                 :finance.entry/account (:db/id account))
-          (cond->
-            (seq invoice-updates)
-              (assoc :finance.posting/invoice (:db/id (first invoice-updates)))))
-      invoice-updates)))
+  [(update-transaction-entry db entry)])
 
 
 (derive :finance.entry/note          ::entry)
 (derive :finance.entry/open-account  ::entry)
 (derive :finance.entry/close-account ::entry)
 (derive :finance.entry/balance-check ::entry)
-(derive :finance.entry/posting       ::entry)
 
 
 (defmethod entry-updates :finance/invoice
