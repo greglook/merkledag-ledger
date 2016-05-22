@@ -11,6 +11,13 @@
   [value commodity])
 
 
+(defn q
+  "Constructs a new quantity from the given amount and currency symbol."
+  [amount currency]
+  {:pre [(number? amount) (symbol? currency)]}
+  (->Quantity amount currency))
+
+
 (defn quantity->form
   "Renders a quantity value as a vector form."
   [q]
