@@ -389,7 +389,7 @@
     :db/unique :db.unique/identity
     :schema s/Str}
 
-   :finance.account/allowed-commodities
+   :finance.account/commodities
    {:db/doc "set of commodities which are valid for the account to contain"
     :db/cardinality :db.cardinality/many
     :schema #{CommodityCode}}

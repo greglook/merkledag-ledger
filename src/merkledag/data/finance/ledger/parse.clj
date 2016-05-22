@@ -288,7 +288,7 @@
                                 (re-seq #"commodity == \"(\S+)\"")
                                 (map (comp (commodity-transforms :CommodityCode) second))
                                 (set))]
-           (assoc account :finance.account/allowed-commodities commodities)
+           (assoc account :finance.account/commodities commodities)
            account))
        (dissoc ::assertion)))})
 
