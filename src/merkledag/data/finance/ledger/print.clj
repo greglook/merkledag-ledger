@@ -11,17 +11,9 @@
 
 ;; ## Rendering Functions
 
-(defn render-dispatch
-  "Selects a rendering key based on the argument type."
-  [entry]
-  (if (vector? entry)
-    (first entry)
-    (:data/type entry)))
-
-
 (defmulti render-entry
   "Renders the given ledger entry as a string."
-  #'render-dispatch)
+  :data/type)
 
 
 (defn render-file

@@ -466,12 +466,12 @@
 (defn parse-group
   "Parses a group of lines from a file, returning an interpreted ledger entry.
   Throws an exception if the parser fails."
-  [group]
-  (->> group
+  [text]
+  (->> text
        (ledger-parser)
        (check-parse!)
        (interpret-parse)
-       (map (partial add-source group))))
+       (map (partial add-source text))))
 
 
 (defn parse-file
