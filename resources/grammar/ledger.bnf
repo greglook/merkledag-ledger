@@ -30,9 +30,28 @@ DateTime = Date , <( 'T' | ' ' )> , Time ;
 Number         = ['-'] , ( Digit | ( NonZeroDigit , ( Digit | <','> )+ ) ) , [ '.' , Digit+ ] ;
 Percentage     = Number , <'%'> ;
 
-(* Financial Quantities *)
+(* Comments & Includes *)
+CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
+CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
+IncludeFile = <'include '> , #"\S+" , NL ;
+
+(* Standard Metadata *)
+TagName = #"[a-zA-Z0-9-]+" ;
+MetaTag = <':'> , TagName , <':'> | TagName , <': '> , Text ;
+MetaDirective = <'note '> , MetaTag ;
+NoteDirective = <'note '> , !MetaTag , Text ;
+
+(* Commodity Definitions *)
 CommodityCode = '$' | #"[a-zA-Z][a-zA-Z_]*" | <'"'> , #"[a-zA-Z][a-zA-Z0-9_]*" , <'"'> ;
+CommodityDefinition = <'commodity '> , CommodityCode , NL , CommodityDirective* ;
+<CommodityDirective> = Indent , ( CommodityFormat | CommodityOption | MetaDirective | NoteDirective ) , NL ;
+CommodityFormat = <'format '> , Text ;
+CommodityOption = 'nomarket' | 'default' ;
+
+(* Quantities, Conversions, and Prices *)
 Quantity = '0' | ( CommodityCode , <[' ']> , Number ) | ( Number , <[' ']> , CommodityCode ) ;
+CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
+CommodityPrice = <'P '> , ( Date | DateTime ) , <' '+> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* Account References *)
 <AccountPathWord> = #"[a-zA-Z0-9&][a-zA-Z0-9-.]*" ;
@@ -44,34 +63,11 @@ RealAccountRef = AccountRef ;
 VirtualAccountRef = <'('> , AccountRef , <')'> ;
 BalancedVirtualAccountRef = <'['> , AccountRef , <']'> ;
 
-(* Comments & Includes *)
-CommentHeader = <';;;;; '> , #"[^;]*[^ ;]" , <' ;;;;;\n'> ;
-CommentBlock = ( <'; '> , Text , NL | <';'> , '\n' )+ , !CommentBlock ;
-IncludeFile = <'include '> , #"\S+" , NL ;
-
-(* Standard Metadata *)
-TagName = #"[a-zA-Z0-9-]+" ;
-MetaTag = <':'> , TagName , <':'> | TagName , <': '> , Text ;
-
-(* Directive Metadata *)
-MetaDirective = <'note '> , MetaTag ;
-NoteDirective = <'note '> , !MetaTag , Text ;
-
 (* Account Definitions *)
 AccountDefinition = <'account '> , AccountPath , NL , AccountDirective* ;
 <AccountDirective> = Indent , ( AccountAliasDirective | AccountAssertion | MetaDirective | NoteDirective ) , NL ;
 AccountAliasDirective = <'alias '> , AccountAlias ;
 AccountAssertion = <'assert '> , Text ;
-
-(* Commodity Definitions *)
-CommodityDefinition = <'commodity '> , CommodityCode , NL , CommodityDirective* ;
-<CommodityDirective> = Indent , ( CommodityFormat | CommodityOption | MetaDirective | NoteDirective ) , NL ;
-CommodityFormat = <'format '> , Text ;
-CommodityOption = 'nomarket' | 'default' ;
-
-(* Commodity Conversions and Prices *)
-CommodityConversion = <'C '> , Quantity , <' = '> , Quantity , NL ;
-CommodityPrice = <'P '> , ( Date | DateTime ) , <' '+> , CommodityCode , <' '+> , Quantity , NL ;
 
 (* History Metadata *)
 TimeMetaTag = 'time: ' ;
