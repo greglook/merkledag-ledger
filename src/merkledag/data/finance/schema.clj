@@ -404,8 +404,7 @@
 (defschema AccountDefinition
   "Schema for an object defining the properties of an account."
   (build-schema :finance/account
-    account-attrs [:finance.account/book
-                   :finance.account/path]))
+    account-attrs [:finance.account/path]))
 
 
 

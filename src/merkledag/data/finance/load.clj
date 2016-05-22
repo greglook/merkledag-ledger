@@ -148,7 +148,7 @@
   (when-not (:book *tx-context*)
     (throw (ex-info "Context must provide book name to import accounts!"
                     {:context *tx-context*})))
-  (s/validate (dissoc schema/AccountDefinition :finance.account/book) account)
+  (s/validate schema/AccountDefinition account)
   (let [book (:book *tx-context*)
         path (:finance.account/path account)
         extant (account/find-account db book path)]
