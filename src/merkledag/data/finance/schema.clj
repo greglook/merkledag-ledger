@@ -212,11 +212,11 @@
    {:db/doc "type of value that this commodity represents"
     :schema CommodityTypeKey}
 
-   :finance.commodity/asset-class
+   :finance.commodity/class
    {:db/doc "map of asset class breakdowns or single class keyword"
     :schema AssetClassBreakdown}
 
-   :finance.commodity/commodity-sector
+   :finance.commodity/sector
    {:db/doc "map of asset class breakdowns or single class keyword"
     :schema CommoditySectorBreakdown}})
 

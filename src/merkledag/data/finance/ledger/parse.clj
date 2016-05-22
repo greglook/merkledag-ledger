@@ -240,7 +240,8 @@
           ::options  (collect-all :CommodityOption)}
          children)
        (lift-meta :type :finance.commodity/type (partial keyword "finance.commodity.type"))
-       ; TODO: load asset class and sectors
+       (lift-meta :class :finance.commodity/class (partial keyword "finance.commodity.class"))
+       (lift-meta :sector :finance.commodity/sector (partial keyword "finance.commodity.sector"))
        (as-> commodity
          (let [fmt (::format commodity)]
            (if (and fmt (not (re-seq #"^\d" fmt)))
