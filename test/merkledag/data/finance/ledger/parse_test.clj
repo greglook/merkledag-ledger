@@ -9,8 +9,12 @@
 
 
 (defn- test-parse
-  [source & values]
-  (is (= values (parse/parse-group source)))
+  "Parses the given source text and asserts that the results match the
+  interpreted values given. Each value is checked against the relevant schema
+  as well."
+  [text & values]
+  (let [text (str text "\n")]
+    (is (= values (parse/parse-group text))))
   (doseq [entry values]
     (when-let [schema (case (:data/type entry)
                         :finance/commodity   schema/CommodityDefinition
@@ -21,18 +25,25 @@
       (s/validate schema entry))))
 
 
+(defn- local-dt
+  "Takes the same args as `date-time`, but returns the specified time in the
+  users default time zone."
+  [& args]
+  (time/from-time-zone (apply time/date-time args) (time/default-time-zone)))
+
+
 (deftest comment-parsing
   (test-parse
-    ";;;;; Foo Bar ;;;;;\n"
+    ";;;;; Foo Bar ;;;;;"
     [:CommentHeader "Foo Bar"])
   (test-parse
-    "; This is a comment\n; spanning multiple lines.\n"
+    "; This is a comment\n; spanning multiple lines."
     [:CommentBlock "This is a comment" "spanning multiple lines."]))
 
 
 (deftest commodity-declarations
   (test-parse
-    "commodity FOO\n"
+    "commodity FOO"
     {:data/type :finance/commodity
      :finance.commodity/code 'FOO})
   (test-parse
@@ -42,7 +53,7 @@
     note class: cash
     format $1,000.00
     nomarket
-    default\n"
+    default"
     {:title "United States Dollars"
      :data/type :finance/commodity
      :finance.commodity/code 'USD
@@ -52,42 +63,39 @@
   (test-parse
     "commodity \"VTR2050\"
     note Vanguard Target Retirement 2050 Fund Tr II
-    note type: mutual-fund\n"
+    note type: mutual-fund"
     {:title "Vanguard Target Retirement 2050 Fund Tr II"
      :data/type :finance/commodity
      :finance.commodity/code 'VTR2050
      :finance.commodity/type :finance.commodity.type/mutual-fund})
-  (let [source "commodity 1234\n"]
+  (let [source "commodity 1234"]
     (is (thrown? Exception (parse/parse-group source)))))
 
 
 (deftest price-history
   (test-parse
-    "P 2004-01-01 points      $0.01\n"
+    "P 2004-01-01 points      $0.01"
     {:data/type :finance/price
-     :time/at (time/from-time-zone (time/date-time 2004 1 1)
-                                   (time/default-time-zone))
+     :time/at (local-dt 2004 1 1)
      :finance.price/commodity 'points
-     :finance.price/value (types/->Quantity 0.01M 'USD)})
+     :finance.price/value (types/q 0.01M 'USD)})
   (test-parse
-    "P 2016-05-20 17:05:30 TSLA      $220.28\n"
+    "P 2016-05-20 17:05:30 TSLA      $220.28"
     {:data/type :finance/price
-     :time/at (time/from-time-zone (time/date-time 2016 5 20 17 5 30)
-                                   (time/default-time-zone))
+     :time/at (local-dt 2016 5 20 17 5 30)
      :finance.price/commodity 'TSLA
-     :finance.price/value (types/->Quantity 220.28M 'USD)})
+     :finance.price/value (types/q 220.28M 'USD)})
   (test-parse
-    "P 2015-09-10 fooberries 101.01 XYZ\n"
+    "P 2015-09-10 fooberries 101.01 XYZ"
     {:data/type :finance/price
-     :time/at (time/from-time-zone (time/date-time 2015 9 10)
-                                   (time/default-time-zone))
+     :time/at (local-dt 2015 9 10)
      :finance.price/commodity 'fooberries
-     :finance.price/value (types/->Quantity 101.01M 'XYZ)}))
+     :finance.price/value (types/q 101.01M 'XYZ)}))
 
 
 (deftest account-directives
   (test-parse
-    "account Equity:Capital Gains\n"
+    "account Equity:Capital Gains"
     {:title "Capital Gains"
      :data/type :finance/account
      :finance.account/path ["Equity" "Capital Gains"]})
@@ -98,7 +106,7 @@
     note type: checking
     note external-id: XX01-13924280
     note link: d2df7edb50a138cc753e60ce4bb0beb9
-    note Personal checking account.\n"
+    note Personal checking account."
     {:title "Personal Checking"
      :description "Personal checking account."
      :data/type :finance/account
