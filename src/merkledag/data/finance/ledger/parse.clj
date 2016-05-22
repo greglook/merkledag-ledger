@@ -373,7 +373,7 @@
           (as-> posting
             (cond-> posting
               (::lot-cost posting)
-                (update :finance.posting/cost assoc :cost (::lot-cost posting))
+                (update :finance.posting/cost assoc :amount (::lot-cost posting))
               (::lot-date posting)
                 (update :finance.posting/cost assoc :date (::lot-date posting))
               (seq (:finance.posting/invoice posting))
