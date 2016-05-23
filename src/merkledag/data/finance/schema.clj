@@ -59,14 +59,14 @@
 
 ;; ## Helper Functions
 
-(defn- namespaced-enum
+(defn namespaced-enum
   "Creates a schema for a keyword with a mandatory namespace component. If
   names are provided, the schema is an enumeration."
   [ns names]
   (apply s/enum (map #(keyword ns (name %)) names)))
 
 
-(defn- distribution-map
+(defn distribution-map
   "Creates a schema for a key type which can either be a single keyword or a map
   of keys whose values sum to one."
   [key-schema]
@@ -76,7 +76,7 @@
                  :else key-schema))
 
 
-(defn- build-schema
+(defn build-schema
   "Helper function to merge many attribute map definitions. The first argument
   is a keyword which the `:data/type` value is required to equal. Remaining
   arguments should be key/value pairs mapping attribute map vars to a collection
