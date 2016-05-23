@@ -193,7 +193,7 @@
                           :where [?e :time/at ?time]
                                  [?e :finance.entry/account ?account]]
                         db (:db/id account) (:time/at entry))]
-        (assoc entry' :finance.entry/rank rank)))))
+        (assoc entry' :finance.entry/rank (or rank 0))))))
 
 
 (defmethod entry-updates :finance.entry/posting
@@ -207,7 +207,7 @@
         (and (:finance.posting/price posting)
              (nil? (:finance.posting/cost posting)))
           (assoc :finance.posting/cost
-                 {:cost (:finance.posting/price posting)
+                 {:amount (:finance.posting/price posting)
                   :date (->> (:time/at posting)
                              ((juxt time/year time/month time/day))
                              (apply time/local-date))})
