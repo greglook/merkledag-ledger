@@ -15,13 +15,6 @@
     :writers {Quantity types/quantity->form}}})
 
 
-(defn q
-  "Constructs a new quantity from the given amount and currency symbol."
-  [amount currency]
-  {:pre [(number? amount) (symbol? currency)]}
-  (types/->Quantity amount currency))
-
-
 
 
 ;; ## Financial Database

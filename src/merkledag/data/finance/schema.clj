@@ -206,6 +206,12 @@
    {:db/doc "one-character string to prefix currency amounts with"
     :schema (s/constrained s/Str #(= 1 (count %)))}
 
+   ; TODO: clarify the relation between precision and tolerance
+   :finance.commodity/precision
+   {:db/doc "number of decimal places to represent the commodity to"
+    :schema s/Int}
+
+   ; TODO: rename to finance.asset ns?
    :finance.commodity/type
    {:db/doc "type of value that this commodity represents"
     :schema CommodityTypeKey}

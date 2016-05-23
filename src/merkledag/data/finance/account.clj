@@ -59,6 +59,7 @@
   "Returns a sequence of ordered entry entities for the given account. The
   `account` arg may be an entity or id."
   [db account]
+  ; TODO: time constraints
   (when-let [account (if (number? account) account (:db/id account))]
     (->>
       (d/q '[:find ?e ?time ?rank
