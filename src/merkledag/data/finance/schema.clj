@@ -59,13 +59,11 @@
 
 ;; ## Helper Functions
 
-(defn- constrained-keyword
+(defn- namespaced-enum
   "Creates a schema for a keyword with a mandatory namespace component. If
   names are provided, the schema is an enumeration."
-  ([ns]
-   (s/constrained s/Keyword #(= ns (namespace %))))
-  ([ns names]
-   (apply s/enum (map #(keyword ns (name %)) names))))
+  [ns names]
+  (apply s/enum (map #(keyword ns (name %)) names)))
 
 
 (defn- distribution-map
@@ -137,7 +135,7 @@
 
 (defschema AssetClassKey
   "Schema for a keyword identifying an asset class."
-  (constrained-keyword "finance.commodity.class" asset-class-names))
+  (namespaced-enum "finance.commodity.class" asset-class-names))
 
 
 (defschema AssetClassBreakdown
@@ -165,7 +163,7 @@
 
 (defschema CommoditySectorKey
   "Schema for a keyword identifying a commodity sector."
-  (constrained-keyword "finance.commodity.sector" commodity-sector-names))
+  (namespaced-enum "finance.commodity.sector" commodity-sector-names))
 
 
 (defschema CommoditySectorBreakdown
@@ -189,7 +187,7 @@
 
 (defschema CommodityTypeKey
   "Schema for a keyword identifying a commodity type."
-  (constrained-keyword "finance.commodity.type" commodity-type-names))
+  (namespaced-enum "finance.commodity.type" commodity-type-names))
 
 
 (defschema CommodityCode
@@ -342,7 +340,7 @@
 
 (defschema AccountTypeKey
   "Schema for a keyword identifying an account type."
-  (constrained-keyword "finance.account.type" account-type-names))
+  (namespaced-enum "finance.account.type" account-type-names))
 
 
 (defschema AccountPath
