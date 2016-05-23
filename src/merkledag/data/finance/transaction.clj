@@ -2,7 +2,9 @@
   "Functions dealing with financial transactions."
   (:require
     [datascript.core :as d]
-    [merkledag.data.finance.types :as types]))
+    (merkledag.data.finance
+      [entry :as entry]
+      [types :as types])))
 
 
 ; Static checks:
@@ -12,6 +14,19 @@
 
 ; Historical checks:
 ; ...
+
+
+(defn tx-balance
+  "Calculates the sum of the posting weights for the given entries. Virtual
+  postings are not included. Returns a map of commodity codes to balances."
+  [entries]
+  (reduce
+    (fn [balances entry]
+      (if-let [weight (entry/entry-weight entry)]
+        (update balances (:commodity weight) (fnil + 0M) (:value weight))
+        balances))
+    (sorted-map)
+    entries))
 
 
 (defn interpolate-entries
@@ -25,28 +40,18 @@
         entries
 
       (= 1 (count missing-amounts))
-        (let [[balance commodities]
-              (reduce (fn [[total cs] entry]
-                        (if-let [amount (:finance.posting/amount entry)]
-                          [(+ total (:value amount)) (conj cs (:commodity amount))]
-                          [total cs]))
-                      [0M #{}]
-                      entries)
+        (let [balances (tx-balance entries)
               [before [missing & after]]
               (split-with #(or (not= :finance.entry/posting (:data/type %))
                                (:finance.posting/amount %))
                           entries)]
-          (when (not= :finance.entry/posting (:data/type missing))
-            (throw (ex-info (str "Cannot infer missing amount for non-posting entry: " (:data/type missing))
-                            (:entries entries
-                             :missing missing))))
-          (when (< 1 (count commodities))
-            (throw (ex-info (str "Cannot infer missing posting amount when multiple commodities are in use: " commodities)
+          (when (< 1 (count balances))
+            (throw (ex-info (str "Cannot infer missing posting amount when multiple commodities are in use: " (keys balances))
                             {:entries entries
-                             :commodities commodities})))
+                             :balances balances})))
           (concat
             before
-            [(assoc missing :finance.posting/amount (types/->Quantity (- balance) (first commodities)))]
+            [(assoc missing :finance.posting/amount (types/->Quantity (- (val (first balances))) (key (first balances))))]
             after))
 
       :else
