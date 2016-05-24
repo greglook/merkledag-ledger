@@ -9,6 +9,7 @@
     [datascript.core :as d]
     (merkledag.data.finance
       [account :as account]
+      [entry :as entry]
       [schema :as schema]
       [transaction :as tx]
       [types :as types])
@@ -199,6 +200,10 @@
 (defmethod entry-updates :finance.entry/posting
   [db posting]
   (s/validate schema/Posting posting)
+  (when-let [errors (entry/check-posting posting)]
+    (throw (ex-info "Semantic errors in posting"
+                    {:posting posting
+                     :errors errors})))
   (let [posting (update-transaction-entry db posting)
         invoice-updates (entry-updates db (:finance.posting/invoice posting))]
     (cons
