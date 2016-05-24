@@ -246,7 +246,7 @@
   "Accepts a chunk of text to parse and import into the database. Updates the
   given stats map with a datapoint measuring the nanoseconds taken to parse and
   load the entries. Returns the updated stats map."
-  [book stats text]
+  [book stats [index text]]
   (try
     (let [parse-start (System/nanoTime)
           entries (parse/parse-group text)
@@ -264,10 +264,13 @@
         stats
         entries))
     (catch Exception ex
-      (println (puget.color.ansi/sgr (str "ERROR: " (.getMessage ex)) :red))
+      (println (puget.color.ansi/sgr (format "ERROR parsing entry %d: (%s) %s"
+                                             index (.getClass ex) (.getMessage ex))
+                                     :red))
       (println text)
       (some-> ex ex-data (dissoc :schema) cprint)
       (println)
+      (print-cause-trace ex)
       (update stats :errors (fnil inc 0)))))
 
 
@@ -285,6 +288,7 @@
       (io/reader)
       (line-seq)
       (group-entries)
+      (map vector (range))
       (reduce (partial measured-import! book) (sorted-map)))))
 
 
