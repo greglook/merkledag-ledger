@@ -391,7 +391,7 @@
                     (dissoc :finance.posting/amount))
               ; If type is overridden and amount is zero, remove it.
               (and (not= :finance.entry/posting (:data/type posting))
-                   (zero? (:value amount)))
+                   (or (nil? (:value amount)) (zero? (:value amount))))
                 (dissoc :finance.posting/amount)))
           (dissoc ::lot-cost ::lot-date))]))
 

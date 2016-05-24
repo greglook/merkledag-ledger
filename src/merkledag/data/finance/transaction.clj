@@ -45,6 +45,9 @@
               (split-with #(or (not= :finance.entry/posting (:data/type %))
                                (:finance.posting/amount %))
                           entries)]
+          (when (empty? balances)
+            (throw (ex-info "Cannot infer missing posting amount with no real postings"
+                            {:entries entries})))
           (when (< 1 (count balances))
             (throw (ex-info (str "Cannot infer missing posting amount when multiple commodities are in use: " (keys balances))
                             {:entries entries
