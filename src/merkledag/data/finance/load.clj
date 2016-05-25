@@ -164,7 +164,7 @@
 (defmethod entry-updates :finance/transaction
   [db transaction]
   (s/validate schema/Transaction transaction)
-  (let [entries (tx/interpolate-entries (:finance.transaction/entries transaction))
+  (let [entries (entry/interpolate-amounts (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db) entries)
         entry-ids (map (comp :db/id first) updates)]
     (cons
@@ -200,7 +200,7 @@
 (defmethod entry-updates :finance.entry/posting
   [db posting]
   (s/validate schema/Posting posting)
-  (when-let [errors (entry/check-posting posting)]
+  (when-let [errors (entry/check-posting posting nil)]
     (throw (ex-info "Semantic errors in posting"
                     {:posting posting
                      :errors errors})))
