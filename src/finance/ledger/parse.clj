@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.ledger.parse
+(ns finance.ledger.parse
   "Ledger file parsing code."
   (:require
     (clj-time
@@ -7,8 +7,8 @@
       [format :as ftime])
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [instaparse.core :as parse]
-    [merkledag.data.finance.types :as types]))
+    [finance.core.types :as types]
+    [instaparse.core :as parse]))
 
 
 (def ledger-parser

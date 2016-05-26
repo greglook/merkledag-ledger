@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.ledger.print
+(ns finance.ledger.print
   "Ledger file printing code."
   (:require
     (clj-time

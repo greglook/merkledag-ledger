@@ -1,8 +1,8 @@
-(ns merkledag.data.finance.entry
+(ns finance.core.entry
   "Functions dealing with postings to financial accounts."
   (:require
     [datascript.core :as d]
-    [merkledag.data.finance.types :as types]))
+    [finance.core.types :as types]))
 
 
 ; Historical checks:

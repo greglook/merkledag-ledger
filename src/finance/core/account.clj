@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.account
+(ns finance.core.account
   "Functions dealing with financial accounts."
   (:require
     [datascript.core :as d]))

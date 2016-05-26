@@ -1,9 +1,9 @@
-(ns merkledag.data.finance.entry-test
+(ns finance.core.entry-test
   (:require
     [clj-time.core :as time]
     [clojure.test :refer :all]
-    [merkledag.data.finance.entry :as entry]
-    [merkledag.data.finance.types :as types]))
+    [finance.core.entry :as entry]
+    [finance.core.types :as types]))
 
 
 (deftest entry-weights

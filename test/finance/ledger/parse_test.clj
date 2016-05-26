@@ -1,10 +1,10 @@
-(ns merkledag.data.finance.ledger.parse-test
+(ns finance.ledger.parse-test
   (:require
     [clj-time.core :as time]
     [clojure.test :refer :all]
-    [merkledag.data.finance.ledger.parse :as parse]
-    [merkledag.data.finance.schema :as schema]
-    [merkledag.data.finance.types :as types]
+    [finance.core.schema :as schema]
+    [finance.core.types :as types]
+    [finance.ledger.parse :as parse]
     [schema.core :as s]))
 
 

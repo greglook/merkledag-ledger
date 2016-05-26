@@ -1,11 +1,11 @@
-(ns merkledag.data.finance.schema
+(ns finance.core.schema
   "Schema definitions for entities in the financial system."
   (:require
-    [merkledag.data.finance.types :as types]
+    [finance.core.types :as types]
     [merkledag.link :as link]
     [schema.core :as s :refer [defschema]])
   (:import
-    merkledag.data.finance.types.Quantity
+    finance.core.types.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
       DateTime

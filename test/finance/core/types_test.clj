@@ -1,7 +1,7 @@
-(ns merkledag.data.finance.types-test
+(ns finance.core.types-test
   (:require
     [clojure.test :refer :all]
-    [merkledag.data.finance.types :as types]))
+    [finance.core.types :as types]))
 
 
 (deftest quantity-serialization

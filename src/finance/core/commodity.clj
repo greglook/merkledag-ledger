@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.commodity
+(ns finance.core.commodity
   "Functions dealing with financial commodities and prices."
   (:require
     [datascript.core :as d]))

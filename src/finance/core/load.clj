@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.load
+(ns finance.core.load
   "Functions to load structured data into the financial database. Loading takes
   an _entry_ and the current database and returns a set of transactions to add
   the data represented by the entry. This is distinct from _importing_ data,
@@ -7,7 +7,7 @@
     [clj-time.core :as time]
     [clojure.string :as str]
     [datascript.core :as d]
-    (merkledag.data.finance
+    (finance.core
       [account :as account]
       [entry :as entry]
       [schema :as schema]

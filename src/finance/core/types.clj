@@ -1,4 +1,4 @@
-(ns merkledag.data.finance.types
+(ns finance.core.types
   "Data types used in the finance app.")
 
 
