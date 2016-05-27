@@ -29,9 +29,10 @@
 (defn render-quantity
   "Renders a financial quantity."
   [quantity]
+  ; TODO: this should allow for general format options
+  ; TODO: support commas
   (case (:commodity quantity)
-    USD
-      (format "$%.2f" (:value quantity))
+    USD (format "$%.2f" (:value quantity))
     (format "%.3f %s" (:value quantity) (:commodity quantity))))
 
 
