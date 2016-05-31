@@ -73,5 +73,3 @@ it's considered to be a percentage of the amount. One common example is tax,
 which is applied as a fraction of the bill total. This is rendered like:
 
     $12.22 ($127.29 @ 9.6%)
-
-Invoices may be shared among multiple postings if relevant.
