@@ -1,113 +1,102 @@
-(ns finance.core.schema
+(ns finance.core.spec
   "Schema definitions for entities in the financial system."
   (:require
+    [clojure.spec :as s]
     [finance.core.types :as types]
-    [merkledag.link :as link]
-    [schema.core :as s :refer [defschema]])
+    [merkledag.link :as link])
   (:import
     finance.core.types.Quantity
     merkledag.link.MerkleLink
     (org.joda.time
       DateTime
+      Interval
       LocalDate)))
+
+
+(def attributes
+  "Map of all defined attributes and their datascript definitions."
+  {})
+
+
+(defmacro defattr
+  [attr-key doc-str spec & {:as opts}]
+  `(do
+     (s/def ~attr-key ~spec)
+     (alter-var-root #'attributes assoc ~attr-key ~(assoc opts :db/doc doc-str))))
+
+
+(defmacro defentity
+  [type-key doc-str & key-args]
+  ; TODO: with typed generator
+  `(s/def ~type-key (s/keys ~@key-args)))
+
 
 
 ;; ## General Data Attributes
 
-(def general-attrs
-  "Definitions for generally-useful attributes."
-  {:title
-   {:db/doc "title to give the data value"
-    :schema s/Str}
-
-   :description
-   {:db/doc "human-readable description string"
-    :schema s/Str}
-
-   :data/ident
-   {:db/doc "unique identifier for data entities"
-    :db/unique :db.unique/value
-    :schema s/Str}
-
-   :data/type
-   {:db/doc "keyword identifying the primary entity type"
-    :db/index true
-    :schema s/Keyword}
-
-   :data/tags
-   {:db/doc "map of keyword tags to values"
-    :schema {s/Keyword s/Any}}
-
-   :data/sources
-   {:db/doc "set of links to source documents the entity is constructed from"
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :schema #{s/Any}}})
+(defattr :data/ident
+  "Unique identifier for data entities."
+  string?
+  :db/unique :db.unique/value)
 
 
-(def time-attrs
-  "Definitions for time-related attributes."
-   {:time/at
-    {:db/doc "point in time at which the datum occurred"
-     :schema DateTime}
+(defattr :data/type
+  "Keyword identifying the primary entity type."
+  (s/and keyword? namespace)
+  :db/index true)
 
-    :time/interval
-    {:db/doc "interval in time the data occurred over"
-     :schema org.joda.time.Interval}})
+
+(defattr :data/title
+  "Title to present the data value with."
+  string?)
+
+
+(defattr :data/description
+  "Human-readable description string."
+  string?)
+
+
+(defattr :data/sources
+  "Set of links to source documents the entity is constructed from."
+  (s/coll-of MerkleLink :kind set? :min-count 1)
+  ;:db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many)
+
+
+(defattr :data/tags
+  "Map of keyword tags to string values. Primarily used for indexing related
+  entities."
+  (s/map-of keyword? string?))
 
 
 
-;; ## Helper Functions
+;; ## Time Attributes
 
-(defn namespaced-enum
-  "Creates a schema for a keyword with a mandatory namespace component. If
-  names are provided, the schema is an enumeration."
-  [ns names]
-  (apply s/enum (map #(keyword ns (name %)) names)))
+(defattr :time/at
+  "Instant in time at which the data occurred."
+  DateTime)
 
 
-(defn distribution-map
-  "Creates a schema for a key type which can either be a single keyword or a map
-  of keys whose values sum to one."
-  [key-schema]
-  (s/conditional map? (s/constrained
-                        {key-schema s/Num}
-                        #(== 1 (reduce + (vals %))))
-                 :else key-schema))
-
-
-(defn build-schema
-  "Helper function to merge many attribute map definitions. The first argument
-  is a keyword which the `:data/type` value is required to equal. Remaining
-  arguments should be key/value pairs mapping attribute map vars to a collection
-  of keywords naming the required attributes. The remaining attributes are
-  considered optional."
-  [data-type & {:as attr-specs}]
-  (->
-    attr-specs
-    (->>
-      (merge {general-attrs [:data/type]})
-      (mapcat
-        (fn spec->schemas
-          [[attrs required-keys]]
-          (let [optional? (complement (set required-keys))]
-            (map (fn schema-key
-                   [[attr-key schema-def]]
-                   [(cond-> attr-key
-                      (optional? attr-key) s/optional-key)
-                    (:schema schema-def)])
-                 attrs))))
-      (into {}))
-    (dissoc (s/optional-key :data/type))
-    (assoc :data/type (s/eq data-type))))
+(defattr :time/interval
+  "Interval in time the data occurred over."
+  Interval)
 
 
 
-;; ## Asset Classes
+;; ## Asset Properties
 
-; TODO: record tree structure here
+(def asset-types
+  "Set of names for some common asset types."
+  #{:currency
+    :bond
+    :stock
+    :mutual-fund
+    :exchange-traded-fund
+    :reward-points})
 
-(def asset-class-names
+; TODO: record asset class tree structure
+
+(def asset-classes
   "Set of names for some common asset classes."
   #{:cash
     :intl-government-bond
@@ -133,21 +122,7 @@
     :other})
 
 
-(defschema AssetClassKey
-  "Schema for a keyword identifying an asset class."
-  (namespaced-enum "finance.commodity.class" asset-class-names))
-
-
-(defschema AssetClassBreakdown
-  "Schema for a map of asset classes to proportional numbers. The values in the
-  map must sum to 1."
-  (distribution-map AssetClassKey))
-
-
-
-;; ## Commodity Sectors
-
-(def commodity-sector-names
+(def asset-sectors
   "Set of names for some common commodity sectors."
   #{:basic-materials
     :communication-services
@@ -161,168 +136,151 @@
     :utilities})
 
 
-(defschema CommoditySectorKey
-  "Schema for a keyword identifying a commodity sector."
-  (namespaced-enum "finance.commodity.sector" commodity-sector-names))
+(defn- distribution-map
+  "Creates a spec for a key type which can either be a single keyword or a map
+  of keys whose values sum to one."
+  [key-spec]
+  (s/or :single key-spec
+        ; might need custom generator
+        :multi (s/and (s/map-of key-spec number?)
+                      #(== 1 (reduce + (vals %))))))
 
 
-(defschema CommoditySectorBreakdown
-  "Schema for a map of sectors to proportional numbers. The values in the map
-  must sum to 1."
-  (distribution-map CommoditySectorKey))
+(defattr :finance.asset/type
+  "Type of value that this asset represents."
+  asset-types)
+
+
+(defattr :finance.asset/class
+  "Map of asset class breakdowns or single class keyword."
+  (distribution-map asset-classes))
+
+
+(defattr :finance.asset/sector
+  "Map of asset sector breakdowns or single sector keyword."
+  (distribution-map asset-sectors))
 
 
 
 ;; ## Commodities
 
-(def commodity-type-names
-  "Set of names for some common commodity types."
-  #{:currency
-    :bond
-    :stock
-    :mutual-fund
-    :exchange-traded-fund
-    :reward-points})
+(defattr :finance.commodity/code
+  "Code symbol used to identify the commodity."
+  (s/and symbol? #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %)))
+  :db/unique :db.unique/identity)
 
 
-(defschema CommodityTypeKey
-  "Schema for a keyword identifying a commodity type."
-  (namespaced-enum "finance.commodity.type" commodity-type-names))
+(defattr :finance.commodity/symbol
+  "One-character string to prefix currency amounts with."
+  (s/and string? #(= 1 (count %))))
 
 
-(defschema CommodityCode
-  "Schema for a symbol identifying a commodity."
-  (s/constrained s/Symbol #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %))))
+; TODO: clarify the relation between precision and tolerance
+(defattr :finance.commodity/precision
+  "Number of decimal places to represent the commodity to."
+  integer?)
 
 
-(def commodity-attrs
-  "Attribute schemas for commodities."
-  {:finance.commodity/code
-   {:db/doc "code symbol used to identify the commodity"
-    :db/unique :db.unique/identity
-    :schema CommodityCode}
-
-   :finance.commodity/currency-symbol
-   {:db/doc "one-character string to prefix currency amounts with"
-    :schema (s/constrained s/Str #(= 1 (count %)))}
-
-   ; TODO: clarify the relation between precision and tolerance
-   :finance.commodity/precision
-   {:db/doc "number of decimal places to represent the commodity to"
-    :schema s/Int}
-
-   ; TODO: rename to finance.asset ns?
-   :finance.commodity/type
-   {:db/doc "type of value that this commodity represents"
-    :schema CommodityTypeKey}
-
-   :finance.commodity/class
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    :schema AssetClassBreakdown}
-
-   :finance.commodity/sector
-   {:db/doc "map of asset class breakdowns or single class keyword"
-    :schema CommoditySectorBreakdown}})
-
-
-(defschema CommodityDefinition
-  "Schema for a commodity definition directive."
-  (build-schema :finance/commodity
-    commodity-attrs [:finance.comomdity/code]))
+(defentity :finance/commodity
+  "..."
+  :req [:data/title
+        :finance.commodity/code
+        :finance.asset/type]
+  :opt [:data/description
+        :finance.commodity/symbol
+        :finance.commodity/precision
+        :finance.asset/class
+        :finance.asset/sector])
 
 
 
 ;; ## Prices and Lots
 
-(def price-attrs
-  "Datascript attribute schemas for commodity price points."
-  {:finance.price/commodity
-   {:db/doc "the commodity the price is measuring"
-    :db/valueType :db.type/ref
-    :schema CommodityCode}
-
-   :finance.price/value
-   {:db/doc "amount of the base commodity a unit of this commodity costs"
-    :schema Quantity}})
+(defattr :finance.price/commodity
+  "Commodity the price is measuring."
+  :finance.commodity/code
+  :db/valueType :db.type/ref)
 
 
-(defschema CommodityPrice
-  "Schema for an explicit price point."
-  (build-schema :finance/price
-    price-attrs [:finance.price/commodity
-                 :finance.price/value]
-    time-attrs [:time/at]))
+(defattr :finance.price/value
+  "Amount of the base commodity a unit of this commodity costs."
+  Quantity)
 
 
-(defschema LotCost
-  "Schema for the cost and lot identifiers associated with a position."
-  {:amount Quantity
-   (s/optional-key :date) LocalDate
-   (s/optional-key :label) s/Str})
+(defentity :finance/price
+  "..."
+  :req [:finance.price/commodity
+        :finance.price/value
+        :time/at])
 
 
 
 ;; ## Items and Invoices
 
-(def item-attrs
-  "Attribute schemas for account properties."
-  {:finance.item/total
-   {:db/doc "total amount contributed by this item"
-    :schema Quantity}
-
-   :finance.item/amount
-   {:db/doc "Amount of the item on the invoice. A bare number indicates a
-            unitless amount of items transacted."
-    :schema (s/conditional number? s/Num :else Quantity)}
-
-   :finance.item/price
-   {:db/doc "Price per unit of the item. A bare number is treated as a unit
-            percentage multiplier."
-    :schema (s/conditional number? s/Num :else Quantity)}
-
-   :finance.item/vendor
-   {:db/doc "Additional string describing the vendor the item is from."
-    :schema s/Str}
-
-   :finance.item/tax-groups
-   {:db/doc "Set of keywords indicating the tax groups a given item is part of."
-    :schema #{s/Keyword}}
-
-   :finance.item/tax-applied
-   {:db/doc "Keyword indicating the group this tax item applies to."
-    :schema s/Keyword}})
+(defattr :finance.item/total
+  "Total amount contributed by this item."
+  Quantity)
 
 
-(defschema LineItem
-  "Schema for a line-item in an invoice."
-  ; TODO: validations
-  ; - amount and price only make sense if total is set
-  ; - amount and price must be set together
-  ; - total should equal amount * price (or be within tolerance)
-  (build-schema :finance/item
-    general-attrs [:title]
-    item-attrs []))
+(defattr :finance.item/amount
+  "Amount of the item on the invoice. A bare number indicates a unitless amount
+  of items transacted."
+  (s/or :count number? :quantity Quantity))
 
 
-(def invoice-attrs
-  "Attribute schemas for invoices."
-  {:finance.invoice/items
-   {:db/doc "Collection of items that make up the invoice."
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :schema [LineItem]}})
+(defattr :finance.item/price
+  "Price per unit of the item. A bare number is treated as a unit percentage
+  multiplier."
+  (s/or :percentage number? :quantity Quantity))
 
 
-(defschema Invoice
-  "Schema for a collection of line items in an invoice."
-  (build-schema :finance/invoice
-    invoice-attrs [:finance.invoice/items]))
+(defattr :finance.item/vendor
+  "Additional string describing the vendor the item is from."
+  string?)
+
+
+(defattr :finance.item/tax-groups
+  "Set of keywords indicating the tax groups a given item is part of."
+  (s/coll-of keyword? :kind set?))
+
+
+(defattr :finance.item/tax-applied
+  "Keyword indicating the group this tax item applies to."
+  keyword?)
+
+
+; TODO: validations
+; - amount and price only make sense if total is set
+; - amount and price must be set together
+; - total should equal amount * price (or be within tolerance)
+(defentity :finance/item
+  "..."
+  :req [:data/title]
+  :opt [:data/description
+        :finance.item/total
+        :finance.item/amount
+        :finance.item/price
+        :finance.item/vendor
+        :finance.item/tax-groups
+        :finance.item/tax-applied])
+
+
+(defattr :finance.invoice/items
+  "Collection of items that make up the invoice."
+  (s/coll-of :finance/item :kind vector?)
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many)
+
+
+(defentity :finance/invoice
+  "..."
+  :req [:finance.invoice/items])
 
 
 
 ;; ## Accounts
 
-(def account-type-names
+(def account-types
   "Set of names for some common account types."
   #{:cash
     :savings
@@ -344,241 +302,288 @@
     :property})
 
 
-(defschema AccountTypeKey
-  "Schema for a keyword identifying an account type."
-  (namespaced-enum "finance.account.type" account-type-names))
+(defattr :finance.account/id
+  "Link to the account's root node."
+  MerkleLink
+  :db/unique :db.unique/identity)
 
 
-(defschema AccountPath
-  [(s/one s/Str "root") s/Str])
+(defattr :finance.account/book
+  "Name of the book the account is part of."
+  string?)
 
 
-(defschema AccountAlias
-  s/Keyword)
+(defattr :finance.account/path
+  "Path segments to uniquely identify the account within a book."
+  (s/+ string?)
+  :db/index true)
 
 
-(defschema AccountRef
-  "Schema for a reference to an account by path or by alias."
-  (s/conditional vector? AccountPath
-                 :else AccountAlias))
+(defattr :finance.account/alias
+  "Keyword alias to refer to the account by."
+  keyword?
+  :db/index true)
 
 
-(def account-attrs
-  "Attribute schemas for account properties."
-  {:finance.account/book
-   {:db/doc "name of the book the account is part of"
-    :schema s/Str}
-
-   :finance.account/id
-   {:db/doc "link to the account's root node"
-    :db/unique :db.unique/identity
-    :schema s/Str}
-
-   :finance.account/path
-   {:db/doc "path segments to uniquely identify the account within a book"
-    :db/index true
-    :schema AccountPath}
-
-   :finance.account/alias
-   {:db/doc "keyword alias to refer to the account by"
-    :db/index true
-    :schema AccountAlias}
-
-   :finance.account/type
-   {:db/doc "keyword identifying the type of account"
-    :schema AccountTypeKey}
-
-   :finance.account/external-id
-   {:db/doc "string giving the account's external identifier, such as an account number"
-    :db/unique :db.unique/identity
-    :schema s/Str}
-
-   :finance.account/commodities
-   {:db/doc "set of commodities which are valid for the account to contain"
-    :db/cardinality :db.cardinality/many
-    :schema #{CommodityCode}}
-
-   :finance.account/links
-   {:db/doc "string identifiers linking related accounts together"
-    :db/cardinality :db.cardinality/many
-    :db/index true
-    :schema #{s/Str}}})
+(defattr :finance.account/type
+  "Keyword identifying the type of account."
+  account-types)
 
 
-(defschema AccountDefinition
-  "Schema for an object defining the properties of an account."
-  (build-schema :finance/account
-    account-attrs [:finance.account/path]))
+(defattr :finance.account/external-id
+  "String giving the account's external identifier, such as an account number."
+  string?
+  :db/unique :db.unique/identity)
+
+
+(defattr :finance.account/commodities
+  "Set of commodities which are valid for the account to contain."
+  (s/coll-of :finance.commodity/code :kind set?)
+  :db/cardinality :db.cardinality/many)
+
+
+(defattr :finance.account/links
+  "String identifiers linking related accounts together."
+  string?
+  :db/cardinality :db.cardinality/many
+  :db/index true)
+
+
+(defentity :finance/account
+  "..."
+  :req [:finance.account/id
+        :finance.account/book
+        :finance.account/path]
+  :opt [:data/title
+        :data/description
+        :finance.account/alias
+        :finance.account/type
+        :finance.account/external-id
+        :finance.account/commodities
+        :finance.account/links])
 
 
 
 ;; ## Journal Entries
 
-(def entry-attrs
-  "Datascript attribute schemas for journal entries."
-  {:finance.entry/account
-   {:db/doc "name of the account the entry is related to"
-    :db/valueType :db.type/ref
-    :schema AccountRef}
-
-   :finance.entry/source-lines
-   {:db/doc "set of lines pulled from third-party sources that this entry represents"
-    :db/cardinality :db.cardinality/many
-    :schema #{[(s/one s/Keyword "source-tag") (s/one s/Str "line")]}}
-
-   :finance.entry/external-id
-   {:db/doc "string containing an external identifier for the entry, for deduplication"
-    :db/index true
-    :schema s/Str}
-
-   :finance.entry/rank
-   {:db/doc "extra numeric value to determine the ordering of entries within an
-            account register which have the same timestamp"
-    :schema s/Num}})
+(defattr :finance.entry/account
+  "Name of the account the entry is related to."
+  (s/or :path :finance.account/path
+        :alias :finance.account/alias)
+  :db/valueType :db.type/ref)
 
 
-(def balance-attrs
-  "Attribute schemas for balance check entries."
-  {:finance.balance/amount
-   {:db/doc "amount of a certain commodity the account should contain"
-    :schema Quantity}})
+(defattr :finance.entry/source-lines
+  "Set of lines pulled from third-party sources that this entry represents."
+  (s/coll-of (s/cat :source-tag keyword? :line string?) :kind set?)
+  :db/cardinality :db.cardinality/many)
 
 
-(defschema AccountNote
-  "General annotation and document linking to accounts."
-  (build-schema :finance.entry/note
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]))
+(defattr :finance.entry/external-id
+  "String containing an external identifier for the entry, for deduplication."
+  string?
+  :db/index true)
 
 
-(defschema OpenAccount
-  "Opening marker for an account."
-  (build-schema :finance.entry/open-account
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]))
+(defattr :finance.entry/rank
+  "Extra numeric value to determine the ordering of entries within an account
+  register which have the same timestamp."
+  number?)
 
 
-(defschema CloseAccount
-  "Tombstone marker for an account."
-  (build-schema :finance.entry/close-account
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]))
+(defmulti journal-entry :data/type)
 
 
-(defschema BalanceCheck
-  "Assertion that an account contains a specific amount of a commodity."
-  (build-schema :finance.entry/balance-check
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]
-    balance-attrs [:finance.balance/amount]))
+(s/def :finance/entry
+  (s/multi-spec journal-entry :data/type))
+
+
+
+;; ### Notes
+
+(defentity :finance.entry/note
+  "..."
+  :req [:data/description
+        :time/at
+        :finance.entry/account]
+  :opt [:time/interval
+        :finance.entry/source-lines
+        :finance.entry/external-id
+        :finance.entry/rank])
+
+
+(defmethod journal-entry :finance.entry/note
+  [_]
+  :finance.entry/note)
+
+
+;; ### Lifecycle Markers
+
+(defentity :finance.entry/open-account
+  "..."
+  :req [:time/at
+        :finance.entry/account]
+  :opt [:data/description
+        :finance.entry/source-lines
+        :finance.entry/external-id
+        :finance.entry/rank])
+
+
+(defmethod journal-entry :finance.entry/open-account
+  [_]
+  :finance.entry/open-account)
+
+
+(defentity :finance.entry/close-account
+  "..."
+  :req [:time/at
+        :finance.entry/account]
+  :opt [:data/description
+        :finance.entry/source-lines
+        :finance.entry/external-id
+        :finance.entry/rank])
+
+
+(defmethod journal-entry :finance.entry/close-account
+  [_]
+  :finance.entry/close-account)
+
+
+
+
+;; ### Balance Assertions
+
+(defattr :finance.balance/amount
+  "Amount of a certain commodity the account should contain."
+  Quantity)
+
+
+(defentity :finance.entry/balance-check
+  "..."
+  :req [:time/at
+        :finance.entry/account
+        :finance.balance/amount]
+  :opt [:data/description
+        :finance.entry/source-lines
+        :finance.entry/external-id
+        :finance.entry/rank])
+
+
+(defmethod journal-entry :finance.entry/balance-check
+  [_]
+  :finance.entry/balance-check)
+
+
+
+;; ## Lots and Positions
+
+(defattr :finance.lot/amount
+  "Quantity of the commodity paid for this lot."
+  Quantity)
+
+
+(defattr :finance.lot/date
+  "Calendar date associated with the lot."
+  LocalDate)
+
+
+(defentity :finance/lot
+  "..."
+  :req [:finance.lot/amount]
+  :opt [:finance.lot/date
+        :data/title])
 
 
 
 ;; ## Postings
 
-(def posting-attrs
-  "Attribute schemas for posting entries."
-  {:finance.posting/virtual
-   {:db/doc "boolean flag indicating that the posting is virtual and need not balance"
-    :schema s/Bool}
-
-   :finance.posting/payee
-   {:db/doc "string name for the counterparty of this posting"
-    :schema s/Str}
-
-   :finance.posting/amount
-   {:db/doc "quantity of a commodity that is changed in the account"
-    :schema Quantity}
-
-   :finance.posting/price
-   {:db/doc "price per-unit of the commodity in `amount` the posting took place at"
-    :schema Quantity}
-
-   :finance.posting/weight
-   {:db/doc "if `price` is set, rather than relying on multiplying the amount by
-            the price, an explicit balance weight can be given"
-    :schema Quantity}
-
-   :finance.posting/cost
-   {:db/doc "reference to the posting which established the position this posting is altering"
-    ;:db/valueType :db.type/ref
-    :schema LotCost}
-
-   :finance.posting/invoice
-   {:db/doc "reference to an itemized list for the posting amount"
-    :db/valueType :db.type/ref
-    :schema Invoice}})
+(defattr :finance.posting/virtual
+  "Boolean flag indicating that the posting is virtual and need not balance."
+  boolean?)
 
 
-(defschema Posting
-  "Schema for a financial posting to an account."
-  (build-schema :finance.entry/posting
-    time-attrs [:time/at]
-    entry-attrs [:finance.entry/account]
-    balance-attrs []
-    posting-attrs []))
+(defattr :finance.posting/payee
+  "String name for the counterparty of this posting."
+  string?)
+
+
+(defattr :finance.posting/amount
+  "Quantity of a commodity that is changed in the account."
+  Quantity)
+
+
+(defattr :finance.posting/price
+  "Price per-unit of the commodity in `amount` the posting took place at."
+  Quantity)
+
+
+(defattr :finance.posting/weight
+  "If `price` is set, rather than relying on multiplying the amount by the
+  price, an explicit balance weight can be given."
+  Quantity)
+
+
+(defattr :finance.posting/cost
+  "Reference to the posting which established the position this posting is altering"
+  MerkleLink
+  :db/valueType :db.type/ref)
+
+
+(defattr :finance.posting/invoice
+  "Reference to an itemized list for the posting amount."
+  MerkleLink
+  :db/valueType :db.type/ref)
+
+
+(defentity :finance.entry/posting
+  "..."
+  :req [:time/at
+        :finance.entry/account]
+  :opt [:data/description
+        :finance.entry/source-lines
+        :finance.entry/external-id
+        :finance.entry/rank
+        :finance.balance/amount])
+
+
+(defmethod journal-entry :finance.entry/posting
+  [_]
+  :finance.entry/posting)
 
 
 
 ;; ## Transactions
 
-(defschema JournalEntry
-  (->>
-    {:note AccountNote
-     :open-account OpenAccount
-     :close-account CloseAccount
-     :balance-check BalanceCheck
-     :posting Posting}
-    (mapcat (fn [[kw schema]]
-              [#(= (keyword "finance.entry" (name kw)) (:data/type %)) schema]))
-    (apply s/conditional)))
+(defattr :finance.transaction/date
+  "Local calendar date on which the transaction occurred."
+  LocalDate)
 
 
-(def transaction-attrs
-  "Datascript attribute schemas for transactions."
-  {:finance.transaction/date
-   {:db/doc "local calendar date on which the transaction occurred"
-    :schema LocalDate}
-
-   :finance.transaction/entries
-   {:db/doc "references to child journal entries"
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many
-    :schema [JournalEntry]}
-
-   :finance.transaction/links
-   {:db/doc "string identifiers linking transactions together"
-    :db/cardinality :db.cardinality/many
-    :db/index true
-    :schema #{s/Str}}
-
-   :finance.transaction/flag
-   {:db/doc "optional flag value to apply to postings"
-    :schema s/Keyword}})
+; TODO: non-virtual postings must sum to zero
+(defattr :finance.transaction/entries
+  "References to child journal entries."
+  (s/coll-of :finance/entry :kind vector? :min-count 1)
+  :db/cardinality :db.cardinality/many)
 
 
-(defschema Transaction
-  "Schema for an object representing a financial transaction."
-  (build-schema :finance/transaction
-    general-attrs [:title]
-    transaction-attrs [:finance.transaction/date
-                       :finance.transaction/entries]))
+(defattr :finance.transaction/links
+  "String identifiers linking transactions together."
+  (s/coll-of string? :kind set?)
+  :db/index true)
 
 
+(defattr :finance.transaction/flag
+  "Optional flag value to apply to postings."
+  #{:pending :cleared})
 
-;; ## All Attributes
 
-(def db-schema
-  "A combination of every attribute map suitable for creating a datascript
-  database from."
-  (merge general-attrs
-         time-attrs
-         commodity-attrs
-         price-attrs
-         item-attrs
-         invoice-attrs
-         account-attrs
-         entry-attrs
-         balance-attrs
-         posting-attrs
-         transaction-attrs))
+(defentity :finance/transaction
+  "..."
+  :req [:data/title
+        :finance.transaction/date
+        :finance.transaction/entries]
+  :opt [:data/description
+        :data/tags
+        :time/at
+        :finance.transaction/links
+        :finance.transaction/flag])
