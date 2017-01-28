@@ -10,10 +10,9 @@
     (finance.core
       [account :as account]
       [entry :as entry]
-      [schema :as schema]
+      [spec :as spec]
       [transaction :as tx]
-      [types :as types])
-    [schema.core :as s]))
+      [types :as types])))
 
 
 (def ^:private ^:dynamic *tx-context*
@@ -121,7 +120,7 @@
 
 (defmethod entry-updates :finance/commodity
   [db commodity]
-  (s/validate schema/CommodityDefinition commodity)
+  ;(s/validate schema/CommodityDefinition commodity)
   (let [code (:finance.commodity/code commodity)
         entity (d/entity db [:finance.commodity/code code])]
     [(assoc commodity :db/id (id-or-temp! entity))]))
@@ -129,7 +128,7 @@
 
 (defmethod entry-updates :finance/price
   [db price]
-  (s/validate schema/CommodityPrice price)
+  ;(s/validate schema/CommodityPrice price)
   (let [code  (:finance.price/commodity price)
         value (:finance.price/value price)
         commodity (d/entity db [:finance.commodity/code code])]
@@ -149,7 +148,7 @@
   (when-not (:book *tx-context*)
     (throw (ex-info "Context must provide book name to import accounts!"
                     {:context *tx-context*})))
-  (s/validate schema/AccountDefinition account)
+  ;(s/validate schema/AccountDefinition account)
   (let [book (:book *tx-context*)
         path (:finance.account/path account)
         extant (account/find-account db book path)]
@@ -163,7 +162,7 @@
 
 (defmethod entry-updates :finance/transaction
   [db transaction]
-  (s/validate schema/Transaction transaction)
+  ;(s/validate schema/Transaction transaction)
   (let [entries (entry/interpolate-amounts (:finance.transaction/entries transaction))
         updates (map (partial entry-updates db) entries)
         entry-ids (map (comp :db/id first) updates)]
@@ -199,7 +198,7 @@
 
 (defmethod entry-updates :finance.entry/posting
   [db posting]
-  (s/validate schema/Posting posting)
+  ;(s/validate schema/Posting posting)
   (when-let [errors (entry/check-posting posting nil)]
     (throw (ex-info "Semantic errors in posting"
                     {:posting posting
@@ -224,7 +223,7 @@
 
 (defmethod entry-updates ::entry
   [db entry]
-  (s/validate schema/JournalEntry entry)
+  ;(s/validate schema/JournalEntry entry)
   [(update-transaction-entry db entry)])
 
 
@@ -236,7 +235,7 @@
 
 (defmethod entry-updates :finance/invoice
   [db invoice]
-  (s/validate schema/Invoice invoice)
+  ;(s/validate schema/Invoice invoice)
   (let [item-updates (map (partial entry-updates db)
                           (:finance.invoice/items invoice))
         item-ids (map (comp :db/id first) item-updates)]
@@ -250,5 +249,5 @@
 
 (defmethod entry-updates :finance/item
   [db item]
-  (s/validate schema/LineItem item)
+  ;(s/validate schema/LineItem item)
   [(assoc item :db/id (next-temp-id!))])
