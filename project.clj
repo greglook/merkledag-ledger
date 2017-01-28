@@ -7,15 +7,14 @@
   :deploy-branches ["master"]
 
   :dependencies
-  [[clj-time "0.11.0"]
-   [datascript "0.15.0"]
-   [instaparse "1.4.2"]
-   [mvxcvi/blocks "0.7.0"]
+  [[org.clojure/clojure "1.9.0-alpha14"]
+   [clj-time "0.13.0"]
+   [datascript "0.15.5"]
+   [instaparse "1.4.5"]
+   [mvxcvi/blocks "0.8.0"]
    [mvxcvi/merkledag "0.2.0-SNAPSHOT"]
-   [mvxcvi/multihash "2.0.0"]
-   [mvxcvi/puget "1.0.0"]
-   [org.clojure/clojure "1.8.0"]
-   [prismatic/schema "1.1.1"]]
+   [mvxcvi/multihash "2.0.1"]
+   [mvxcvi/puget "1.0.1"]]
 
   :hiera
   {:vertical false
