@@ -16,17 +16,15 @@
 ;; ## System Layout
 
 ;; The financial system is laid out as a tree of data from a single root. The
-;; system allows for tracking multiple independent _ledgers_ each of which has
+;; system allows for tracking multiple independent _books_ each of which has
 ;; a balanced tree of accounts which obey the accounting equation.
 ;;
-;; Within each ledger, a common set of accounts is used across one or more
-;; _journals_, which contain a sequence of _transactions_. Each transaction
-;; contains a balanced set of _postings_ which modify account balances.
+;; Within each set of books, a tree of accounts is used in the _journal_, which
+;; contains a sequence of _transactions_. Each transaction contains a balanced
+;; set of _postings_ which modify account balances.
 ;;
 ;; All ledgers in the system share a common set of commodity definitions and
 ;; prices.
-;;
-;; This node should probably be a commit to track the history of updates.
 
 ; /finances/
 ;   commodities/
@@ -86,19 +84,19 @@
 ;; TODO: method to list the asset class breakdown for funds
 
 ; /commodities/USD
-{:title "United States Dollar"
+{:data/title "United States Dollar"
  :data/type :finance/commodity
  :finance.commodity/code USD
- :finance.commodity/asset-class :finance.commodity.asset-class/currency
+ :finance.commodity/asset-class :currency
  :finance.commodity/symbol "$"
  :finance.commodity/format "$1,000.00"}
 
 
 ; /commodities/TLSA
-{:title "TESLA MOTORS INC"
+{:data/title "TESLA MOTORS INC"
  :data/type :finance/commodity
  :finance.commodity/code TSLA
- :finance.commodity/asset-class :finance.commodity.asset-class/stock
+ :finance.commodity/asset-class :stock
  :finance.commodity/format "1,000"}
 
 
@@ -171,26 +169,26 @@
 
 ; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking/-id
 {:data/type :finance/account-root
- :title "Charles Schwab Investor Checking 4400-14XXXXXX"
- :description "Opened a checking account with Schwab."
+ :data/title "Charles Schwab Investor Checking 4400-14XXXXXX"
+ :data/description "Opened a checking account with Schwab."
  :finance.account/institution #data/link -institution
  :time/at #inst "2013-10-08T00:00:00Z"}
 
 
 ; /ledgers/user/accounts/assets/cash/charles-schwab
-{:type :finance/account
- :title "Charles Schwab"
- :finance.account/type :finance.account.type/group
+{:data/type :finance/account
+ :data/title "Charles Schwab"
+ :finance.account/type :group
  :finance.account/institution #data/link -institution
- :group/children #{#data/link investor-checking}}
+ :group/entries #{#data/link investor-checking}}
 
 
 ; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking
-{:type :finance/account
- :title "Investor Checking"
- :description "High-Yield Investor Checking Account"
+{:data/type :finance/account
+ :data/title "Investor Checking"
+ :data/description "High-Yield Investor Checking Account"
  :finance.account/id #data/link -id
- :finance.account/type :finance.account.type/checking
+ :finance.account/type :checking
  :finance.account/institution #data/link -institution
  :finance.account/external-id "4400-14XXXXXX"
  :finance.account/commodities #{USD}
@@ -198,9 +196,9 @@
 
 
 ; /ledgers/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
-{:type :finance/account
- :title "31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX"
- :finance.account/type :finance.account.type/bitcoin
+{:data/type :finance/account
+ :data/title "31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX"
+ :finance.account/type :crypto
  :finance.account/commodities #{BTC}}
 
 
@@ -209,32 +207,29 @@
 
 ;; Transactions tie together multiple _postings_ into a balanced unit. The
 ;; amounts within a transaction MUST sum to zero. Postings are applied in order
-;; within the transaction.
-;;
-;; Transactions are organized into a _journals_ in a time-ordered sequence.
-;; Each journal serves as a namespace for transactions, which can be combined
-;; or viewed individually.
+;; within the transaction. Transactions are organized into a _journal_ in a
+;; time-ordered sequence.
 ;;
 ;; - time      Time the transaction occurred.
 ;; - entries   Set of entries grouped into this transaction.
 ;; - state     Whether the transaction has cleared or is still pending.
 
 ; /ledgers/user/journals/general
-{:type :finance/journal
- :title "General Transactions"
- :description "All-purpose transaction journal."
+{:data/type :finance/journal
+ :data/title "General Transactions"
+ :data/description "All-purpose transaction journal."
  :finance.journal/entries [#data/link "2013"
                            #data/link "2014"]}
 
 ; /ledgers/user/journals/general/2013/10/08/tx-07
-{:type :finance/transaction
- :title "Dividend Reinvestment"
- :description "Automatic reinvestment."
+{:data/type :finance/transaction
+ :data/title "Dividend Reinvestment"
+ :data/description "Automatic reinvestment."
  :time/at #inst "2013-10-08T00:00:00Z"
  :finance.transaction/entries [#data/link posting-1
                                #data/link posting-2
                                #data/link balance-check]
- :finance.transaction/state :finance.transaction.state/cleared}
+ :finance.transaction/state :cleared}
 
 
 
@@ -263,21 +258,21 @@
 
 
 ; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01
-{:type :finance/posting
+{:data/type :finance/posting
  :time/at #inst "2013-10-08"
  :finance.posting/account #data/link paypal
  :finance.posting/balances {USD 23.71M}}
 
 
-{:type :finance/posting
- :description "Contacted customer service rep about disabling dividend reinvestment."
+{:data/type :finance/posting
+ :data/description "Contacted customer service rep about disabling dividend reinvestment."
  :time/at #inst "2014-05-21"
  :finance.posting/account #data/link schwab-checking}
 
 
-{:type :finance/posting
- :title "SCH US AGG BND ETF"
- :description "Rev Reinvest Shares"
+{:data/type :finance/posting
+ :data/title "SCH US AGG BND ETF"
+ :data/description "Rev Reinvest Shares"
  :time/at #inst "2013-10-08T00:00:00Z"
  :finance.posting/account #data/link schwab-individual
  :finance.posting/amount #finance/$ [1.0423M SCHZ]
@@ -305,9 +300,9 @@
 
 
 ; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01/item-01
-{:type :finance/item
- :title "NOW Foods Creatine Powder, 2.2 Pounds"
- :description "..."
+{:data/type :finance/item
+ :data/title "NOW Foods Creatine Powder, 2.2 Pounds"
+ :data/description "..."
  :finance.item/id "B0013OXD38"
  :finance.item/vendor "Amazon.com LLC"
  :finance.item/amount 1
@@ -316,8 +311,8 @@
  :finance.item/taxes #{:seattle-sales}}  ; TODO: better way to track taxes applied
 
 
-{:type :finance/item
- :title "Seattle Sales Tax"
+{:data/type :finance/item
+ :data/title "Seattle Sales Tax"
  :finance.item/amount #finance/$ [127.29M USD]
  :finance.item/price 0.096M
  :finance.item/subtotal #finance/$ [12.22M USD]}
@@ -345,29 +340,29 @@
 ; "10/08/2013","Rev Reinvest Shares","SCHZ","SCH US AGG BND ETF","1.0423","$50.7643","","-$52.91",
 
 ; posting-1
-{:type :finance/posting
- :title "SCH US AGG BND ETF"
- :description "Rev Reinvest Shares"
+{:data/type :finance/posting
+ :data/title "SCH US AGG BND ETF"
+ :data/description "Rev Reinvest Shares"
  :time/at #inst "2013-10-08T00:00:00Z"
  :data/sources #{#data/link source-csv}
  :finance.posting/account #data/link schwab-individual
  :finance.posting/amount #finance/$ [-52.91M USD]}
 
 ; posting-2
-{:type :finance/posting
- :title "SCH US AGG BND ETF"
- :description "Rev Reinvest Shares"
- :time/at #inst "2013-10-08T00:00:00Z"
+{:data/type :finance/posting
+ :data/title "SCH US AGG BND ETF"
+ :data/description "Rev Reinvest Shares"
  :data/sources #{#data/link source-csv}
+ :time/at #inst "2013-10-08T00:00:00Z"
  :finance.posting/account #data/link schwab-individual
  :finance.posting/amount #finance/$ [1.0423M SCHZ]
  :finance.posting/cost #finance/$ [50.7643M USD]}
 
 ; transaction
-{:type :finance/transaction
- :title "SCHZ - Reinvest Dividend"
- :description "Automatic dividend reinvestment."
+{:data/type :finance/transaction
+ :data/title "SCHZ - Reinvest Dividend"
+ :data/description "Automatic dividend reinvestment."
  :time/at #inst "2013-10-08T00:00:00Z"
  :finance.transaction/entries [#data/link posting-1
                                #data/link posting-2]
- :finance.transaction/state :finance.transaction.state/cleared}
+ :finance.transaction/state :cleared}
