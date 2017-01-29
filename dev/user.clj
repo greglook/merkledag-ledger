@@ -8,21 +8,23 @@
     [clojure.data :refer [diff]]
     [clojure.java.io :as io]
     [clojure.repl :refer :all]
+    [clojure.spec :as s]
+    [clojure.spec.gen :as gen]
     [clojure.stacktrace :refer [print-cause-trace]]
     [clojure.string :as str]
     [clojure.tools.namespace.repl :refer [refresh]]
     [datascript.core :as d]
     [instaparse.core :as insta]
     [merkledag.core :as merkle]
-    [merkledag.data.finance :as finance]
-    (merkledag.data.finance
+    (finance.core
       [account :as account]
+      [commodity :as commodity]
+      [entry :as entry]
       [load :as load]
-      [schema :as schema]
+      [spec :as spec]
       [transaction :as transaction])
-    [merkledag.data.finance.ledger.parse :as parse]
+    [finance.ledger.parse :as parse]
     [puget.printer :as puget]
-    [schema.core :as s]
     [user.db :as db]))
 
 
@@ -35,11 +37,10 @@
      :print-color true
      :print-handlers
      {java.util.UUID (puget/tagged-handler 'uuid str)
-      merkledag.data.finance.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+      finance.core.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
       org.joda.time.DateTime (puget/tagged-handler 'inst str)
       org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
-      org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))
-      schema.utils.ValidationError (puget/tagged-handler 'schema/error schema.utils/validation-error-explain)}}))
+      org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))}}))
 
 
 (defn human-duration
@@ -144,13 +145,7 @@
                  (println)
                  (println "Interpreted:")
                  (cprint interpreted)
-                 (when-let [errors (some->
-                                     {:finance/account schema/AccountDefinition
-                                      :finance/commodity schema/CommodityDefinition
-                                      :finance/price schema/CommodityPrice
-                                      :finance/transaction schema/Transaction}
-                                     (get (:data/type entry))
-                                     (s/check entry))]
+                 (when-let [errors (s/explain (:data/type entry) entry)]
                    (println)
                    (println "Validation errors:")
                    (cprint errors)))
