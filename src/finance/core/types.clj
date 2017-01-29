@@ -11,11 +11,17 @@
   [value commodity])
 
 
+(defn quantity?
+  "Predicate which returns true if the value `x` is a quantity record."
+  [x]
+  (instance? Quantity x))
+
+
 (defn q
-  "Constructs a new quantity from the given amount and currency symbol."
-  [amount currency]
-  {:pre [(number? amount) (symbol? currency)]}
-  (->Quantity amount currency))
+  "Constructs a new quantity from the given amount and commodity symbol."
+  [amount commodity]
+  {:pre [(number? amount) (symbol? commodity)]}
+  (->Quantity amount commodity))
 
 
 (defn quantity->form

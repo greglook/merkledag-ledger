@@ -1,12 +1,12 @@
 (ns finance.core.spec
   "Schema definitions for entities in the financial system."
   (:require
+    [clojure.set :as set]
     [clojure.spec :as s]
-    [finance.core.types :as types]
+    [clojure.spec.gen :as gen]
+    [finance.core.types :refer [q quantity?]]
     [merkledag.link :as link])
   (:import
-    finance.core.types.Quantity
-    merkledag.link.MerkleLink
     (org.joda.time
       DateTime
       Interval
@@ -26,13 +26,24 @@
 
 
 (defmacro defentity
-  [type-key doc-str & key-args]
-  ; TODO: with typed generator
-  `(s/def ~type-key (s/keys ~@key-args)))
+  [type-key doc-str & {:as key-args}]
+  `(s/def ~type-key
+     (let [spec# (s/keys ~@(apply concat key-args))]
+       (s/with-gen
+         (s/and spec# (comp #{~type-key} :data/type))
+         #(gen/fmap
+            (fn [e#] (assoc e# :data/type ~type-key))
+            (s/gen spec#))))))
 
 
 
 ;; ## General Data Attributes
+
+(defn merkle-link?
+  "Predicate which returns true if the value `x` is a merkle link object."
+  [x]
+  (instance? merkledag.link.MerkleLink x))
+
 
 (defattr :data/ident
   "Unique identifier for data entities."
@@ -58,7 +69,7 @@
 
 (defattr :data/sources
   "Set of links to source documents the entity is constructed from."
-  (s/coll-of MerkleLink :kind set? :min-count 1)
+  (s/coll-of merkle-link? :kind set? :min-count 1)
   ;:db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many)
 
@@ -74,12 +85,12 @@
 
 (defattr :time/at
   "Instant in time at which the data occurred."
-  DateTime)
+  #(instance? DateTime %))
 
 
 (defattr :time/interval
   "Interval in time the data occurred over."
-  Interval)
+  #(instance? Interval %))
 
 
 
@@ -140,10 +151,21 @@
   "Creates a spec for a key type which can either be a single keyword or a map
   of keys whose values sum to one."
   [key-spec]
-  (s/or :single key-spec
-        ; might need custom generator
-        :multi (s/and (s/map-of key-spec number?)
-                      #(== 1 (reduce + (vals %))))))
+  (s/or
+    :single key-spec
+    :multi (s/with-gen
+             (s/and (s/map-of key-spec (s/double-in :min 0.0
+                                                    :max 1.0
+                                                    :infinite? false
+                                                    :NaN? false))
+                    #(== 1 (reduce + (vals %))))
+             #(gen/fmap
+                (fn [m]
+                  (if (= 1 (count m))
+                    (key (first m))
+                    (let [total (reduce + (vals m))]
+                      (into {} (map (fn [[k v]] [k (/ v total)]) m)))))
+                (gen/map (s/gen key-spec) (s/gen (s/and float? pos?)))))))
 
 
 (defattr :finance.asset/type
@@ -166,13 +188,26 @@
 
 (defattr :finance.commodity/code
   "Code symbol used to identify the commodity."
-  (s/and symbol? #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %)))
+  (s/with-gen
+    (s/and symbol? #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %)))
+    #(let [number-chars (set (map char (range 48 58)))
+           upper-chars (set (map char (range 65 91)))
+           lower-chars (set (map char (range 97 123)))
+           prefix-chars (set/union upper-chars lower-chars)
+           body-chars (set/union number-chars upper-chars lower-chars #{\_})]
+       (gen/fmap
+         (fn [[prefix body]]
+           (symbol (apply str prefix body)))
+         (gen/tuple (gen/elements prefix-chars)
+                    (gen/vector (gen/elements body-chars))))))
   :db/unique :db.unique/identity)
 
 
 (defattr :finance.commodity/symbol
   "One-character string to prefix currency amounts with."
-  (s/and string? #(= 1 (count %))))
+  (s/with-gen
+    (s/and string? #(= 1 (count %)))
+    #(gen/fmap str (gen/char-ascii))))
 
 
 ; TODO: clarify the relation between precision and tolerance
@@ -194,6 +229,24 @@
 
 
 
+;; ## Financial Quantities
+
+(s/def :finance/quantity
+  (s/with-gen
+    (s/and quantity?
+           (comp number? :amount)
+           (comp symbol? :commodity))
+    #(gen/fmap
+       (fn [[base exp code]]
+         (q (nth (iterate (fn [x] (/ x 10)) (bigdec base))
+                 exp)
+            code))
+       (gen/tuple (gen/large-integer)
+                  (gen/large-integer* {:min 0, :max 3})
+                  (s/gen :finance.commodity/code)))))
+
+
+
 ;; ## Prices and Lots
 
 (defattr :finance.price/commodity
@@ -204,7 +257,7 @@
 
 (defattr :finance.price/value
   "Amount of the base commodity a unit of this commodity costs."
-  Quantity)
+  :finance/quantity)
 
 
 (defentity :finance/price
@@ -219,19 +272,19 @@
 
 (defattr :finance.item/total
   "Total amount contributed by this item."
-  Quantity)
+  :finance/quantity)
 
 
 (defattr :finance.item/amount
   "Amount of the item on the invoice. A bare number indicates a unitless amount
   of items transacted."
-  (s/or :count number? :quantity Quantity))
+  (s/or :count number? :quantity :finance/quantity))
 
 
 (defattr :finance.item/price
   "Price per unit of the item. A bare number is treated as a unit percentage
   multiplier."
-  (s/or :percentage number? :quantity Quantity))
+  (s/or :percentage number? :quantity :finance/quantity))
 
 
 (defattr :finance.item/vendor
@@ -304,7 +357,7 @@
 
 (defattr :finance.account/id
   "Link to the account's root node."
-  MerkleLink
+  merkle-link?
   :db/unique :db.unique/identity)
 
 
@@ -455,7 +508,7 @@
 
 (defattr :finance.balance/amount
   "Amount of a certain commodity the account should contain."
-  Quantity)
+  :finance/quantity)
 
 
 (defentity :finance.entry/balance-check
@@ -479,12 +532,12 @@
 
 (defattr :finance.lot/amount
   "Quantity of the commodity paid for this lot."
-  Quantity)
+  :finance/quantity)
 
 
 (defattr :finance.lot/date
   "Calendar date associated with the lot."
-  LocalDate)
+  #(instance? LocalDate %))
 
 
 (defentity :finance/lot
@@ -509,29 +562,29 @@
 
 (defattr :finance.posting/amount
   "Quantity of a commodity that is changed in the account."
-  Quantity)
+  :finance/quantity)
 
 
 (defattr :finance.posting/price
   "Price per-unit of the commodity in `amount` the posting took place at."
-  Quantity)
+  :finance/quantity)
 
 
 (defattr :finance.posting/weight
   "If `price` is set, rather than relying on multiplying the amount by the
   price, an explicit balance weight can be given."
-  Quantity)
+  :finance/quantity)
 
 
 (defattr :finance.posting/cost
   "Reference to the posting which established the position this posting is altering"
-  MerkleLink
+  merkle-link?
   :db/valueType :db.type/ref)
 
 
 (defattr :finance.posting/invoice
   "Reference to an itemized list for the posting amount."
-  MerkleLink
+  merkle-link?
   :db/valueType :db.type/ref)
 
 
@@ -556,7 +609,7 @@
 
 (defattr :finance.transaction/date
   "Local calendar date on which the transaction occurred."
-  LocalDate)
+  #(instance? LocalDate %))
 
 
 ; TODO: non-virtual postings must sum to zero

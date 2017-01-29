@@ -1,28 +1,25 @@
 (ns finance.ledger.parse-test
   (:require
     [clj-time.core :as time]
+    [clojure.spec :as s]
     [clojure.test :refer :all]
-    [finance.core.schema :as schema]
+    [finance.core.spec :as spec]
     [finance.core.types :as types]
-    [finance.ledger.parse :as parse]
-    [schema.core :as s]))
+    [finance.ledger.parse :as parse]))
 
 
 (defn- test-parse
   "Parses the given source text and asserts that the results match the
-  interpreted values given. Each value is checked against the relevant schema
-  as well."
+  interpreted values given. Each value is checked against the relevant spec as
+  well."
   [text & values]
   (let [text (str text "\n")]
     (is (= values (parse/parse-group text))))
   (doseq [entry values]
-    (when-let [schema (case (:data/type entry)
-                        :finance/commodity   schema/CommodityDefinition
-                        :finance/price       schema/CommodityPrice
-                        :finance/account     schema/AccountDefinition
-                        :finance/transaction schema/Transaction
-                        nil)]
-      (s/validate schema entry))))
+    (when-let [spec (s/get-spec (:data/type entry))]
+      (when-not (s/valid? spec entry)
+        (throw (ex-info (s/explain-str spec entry)
+                        {:spec spec, :entry entry}))))))
 
 
 (defn- local-dt
