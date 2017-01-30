@@ -1,6 +1,7 @@
 (ns finance.core.spec
   "Schema definitions for entities in the financial system."
   (:require
+    [clj-time.coerce :as ctime]
     [clojure.set :as set]
     [clojure.spec :as s]
     [clojure.spec.gen :as gen]
@@ -85,12 +86,20 @@
 
 (defattr :time/at
   "Instant in time at which the data occurred."
-  #(instance? DateTime %))
+  (s/with-gen
+    #(instance? DateTime %)
+    #(gen/fmap ctime/to-date-time (s/gen inst?))))
 
 
 (defattr :time/interval
   "Interval in time the data occurred over."
-  #(instance? Interval %))
+  (s/with-gen
+    #(instance? Interval %)
+    #(gen/fmap
+       (fn [times]
+         (let [[a b] (sort times)]
+           (Interval. a b)))
+       (gen/vector (s/gen :time/at) 2))))
 
 
 
@@ -303,8 +312,8 @@
 
 
 ; TODO: validations
-; - amount and price only make sense if total is set
 ; - amount and price must be set together
+; - amount and price only make sense if total is set
 ; - total should equal amount * price (or be within tolerance)
 (defentity :finance/item
   "..."
