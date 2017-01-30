@@ -234,7 +234,7 @@
 (s/def :finance/quantity
   (s/with-gen
     (s/and quantity?
-           (comp number? :amount)
+           (comp number? :value)
            (comp symbol? :commodity))
     #(gen/fmap
        (fn [[base exp code]]
