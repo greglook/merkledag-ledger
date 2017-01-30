@@ -322,9 +322,7 @@
         :finance.item/total
         :finance.item/amount
         :finance.item/price
-        :finance.item/vendor
-        :finance.item/tax-groups
-        :finance.item/tax-applied])
+        :finance.item/vendor])
 
 
 (defattr :finance.invoice/items
@@ -372,12 +370,12 @@
 
 (defattr :finance.account/book
   "Name of the book the account is part of."
-  string?)
+  (s/and string? not-empty))
 
 
 (defattr :finance.account/path
   "Path segments to uniquely identify the account within a book."
-  (s/+ string?)
+  (s/+ (s/and string? not-empty))
   :db/index true)
 
 
@@ -394,7 +392,7 @@
 
 (defattr :finance.account/external-id
   "String giving the account's external identifier, such as an account number."
-  string?
+  (s/and string? not-empty)
   :db/unique :db.unique/identity)
 
 
@@ -406,7 +404,7 @@
 
 (defattr :finance.account/links
   "String identifiers linking related accounts together."
-  string?
+  (s/and string? not-empty)
   :db/cardinality :db.cardinality/many
   :db/index true)
 
