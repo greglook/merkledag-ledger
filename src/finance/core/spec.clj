@@ -114,7 +114,6 @@
     :exchange-traded-fund
     :reward-points})
 
-; TODO: record asset class tree structure
 
 (def asset-classes
   "Set of names for some common asset classes."
@@ -124,6 +123,7 @@
     :us-government-bond
     :us-corporate-bond
     :us-municipal-bond
+    :p2p-lending
     :intl-developed-stock
     :intl-emerging-stock
     :us-large-cap-value
@@ -140,6 +140,44 @@
     :gold
     :commodities
     :other})
+
+
+(def asset-class-tree
+  "Vector tree representing the asset class hierarchy."
+  [:all
+   [:cash]
+   [:fixed-income
+    [:intl-bonds
+     [:intl-government-bond]
+     [:intl-corporate-bond]]
+    [:us-bonds
+     [:us-government-bond]
+     [:us-corporate-bond]
+     [:us-municipal-bond]]
+    [:p2p-lending]]
+   [:equities
+    [:intl-stocks
+     [:intl-developed-stock]
+     [:intl-emerging-stock]]
+    [:us-stocks
+     [:us-large-cap
+      [:us-large-cap-value]
+      [:us-large-cap-core]
+      [:us-large-cap-growth]]
+     [:us-mid-cap
+      [:us-mid-cap-value]
+      [:us-mid-cap-core]
+      [:us-mid-cap-growth]]
+     [:us-small-cap
+      [:us-small-cap-value]
+      [:us-small-cap-core]
+      [:us-small-cap-growth]]]]
+   [:alternatives
+    [:currency]
+    [:real-estate]
+    [:gold]
+    [:commodities]
+    [:other]]])
 
 
 (def asset-sectors
