@@ -26,7 +26,7 @@
 ;; All ledgers in the system share a common set of commodity definitions and
 ;; prices.
 
-; /finances/
+; .../
 ;   commodities/
 ;     {USD}
 ;     {TSLA}
@@ -83,18 +83,18 @@
 ;;
 ;; TODO: method to list the asset class breakdown for funds
 
-; /commodities/USD
-{:data/title "United States Dollar"
- :data/type :finance/commodity
+; .../commodities/USD
+{:data/type :finance/commodity
+ :data/title "United States Dollar"
  :finance.commodity/code USD
  :finance.commodity/asset-class :currency
  :finance.commodity/symbol "$"
  :finance.commodity/format "$1,000.00"}
 
 
-; /commodities/TLSA
-{:data/title "TESLA MOTORS INC"
- :data/type :finance/commodity
+; .../commodities/TLSA
+{:data/type :finance/commodity
+ :data/title "TESLA MOTORS INC"
  :finance.commodity/code TSLA
  :finance.commodity/asset-class :stock
  :finance.commodity/format "1,000"}
@@ -116,23 +116,21 @@
 ;; - source      string describing the source of the data
 
 
-; /prices/VFIFX
-{:data/type :time/year-index
- :time.tree-index/children
- {2013 #data/link "2013"
-  2014 #data/link "2014"
-  2015 #data/link "2015"}}
+; .../prices/VFIFX
+{:data/type :finance.price/commodity
+ :finance.price.commodity/years
+ {2013 #merkledag/link "2013"
+  2014 #merkledag/link "2014"
+  2015 #merkledag/link "2015"}}
 
 
-; /prices/VFIFX/2015
+; .../prices/VFIFX/2015
 [{:time/at #inst "2015-01-05T03:22:24Z"
-  :finance.price/commodity VFIFX
   :finance.price/value #finance/$ [28.42M USD]}
  ...
  {:time/at #inst "2015-01-05T12:10:41Z"
-  :finance.price/commodity VFIFX
   :finance.price/value #finance/$ [29.25M USD]
-  :data/source #data/link "NASDAQ"}]
+  :data/source "NASDAQ"}]
 
 
 
@@ -167,35 +165,35 @@
 ;; - depreciation?   information about depreciaton method, period, lifespan, etc.
 
 
-; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking/-id
-{:data/type :finance/account-root
- :data/title "Charles Schwab Investor Checking 4400-14XXXXXX"
- :data/description "Opened a checking account with Schwab."
- :finance.account/institution #data/link -institution
- :time/at #inst "2013-10-08T00:00:00Z"}
-
-
-; /ledgers/user/accounts/assets/cash/charles-schwab
+; .../books/user/accounts/assets/cash/charles-schwab
 {:data/type :finance/account
  :data/title "Charles Schwab"
  :finance.account/type :group
- :finance.account/institution #data/link -institution
- :group/entries #{#data/link investor-checking}}
+ :finance.account/institution #merkledag/link "@institution"
+ :group/entries #{#merkledag/link "investor-checking"}}
 
 
-; /ledgers/user/accounts/assets/cash/charles-schwab/investor-checking
+; .../books/user/accounts/assets/cash/charles-schwab/investor-checking
 {:data/type :finance/account
  :data/title "Investor Checking"
  :data/description "High-Yield Investor Checking Account"
- :finance.account/id #data/link -id
+ :finance.account/id #merkledag/link "@id"
  :finance.account/type :checking
- :finance.account/institution #data/link -institution
+ :finance.account/institution #merkledag/link "@institution"
  :finance.account/external-id "4400-14XXXXXX"
  :finance.account/commodities #{USD}
  :finance.account/interest-rate 0.005}
 
 
-; /ledgers/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
+; .../books/user/accounts/assets/cash/charles-schwab/investor-checking/@id
+{:data/type :finance/account-root
+ :data/title "Charles Schwab Investor Checking 4400-14XXXXXX"
+ :data/description "Opened a checking account with Schwab."
+ :finance.account/institution #merkledag/link "@institution"
+ :time/at #inst "2013-10-08T00:00:00Z"}
+
+
+; .../books/user/accounts/assets/bitcoin/offline-wallet/31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX
 {:data/type :finance/account
  :data/title "31uEbMgunupShBVXXXXXXXXXXXXXXXXXXX"
  :finance.account/type :crypto
@@ -214,21 +212,39 @@
 ;; - entries   Set of entries grouped into this transaction.
 ;; - state     Whether the transaction has cleared or is still pending.
 
-; /ledgers/user/journals/general
+; .../books/user/journal
 {:data/type :finance/journal
- :data/title "General Transactions"
- :data/description "All-purpose transaction journal."
- :finance.journal/entries [#data/link "2013"
-                           #data/link "2014"]}
+ :finance.book/name "user"
+ :finance.journal/entries [#merkledag/link "2013"
+                           #merkledag/link "2014"]}
 
-; /ledgers/user/journals/general/2013/10/08/tx-07
+; .../books/user/journal/2013
+[#merkledag/link "01"
+ #merkledag/link "02"
+ #merkledag/link "03"
+ ...]
+
+; .../books/user/journal/2013/10
+[#merkledag/link "01"
+ #merkledag/link "02"
+ #merkledag/link "03"
+ ...]
+
+; .../books/user/journal/2013/10/08
+[#merkledag/link "tx-1"
+ #merkledag/link "tx-2"
+ #merkledag/link "tx-3"
+ #merkledag/link "tx-4"
+ ...]
+
+; .../books/user/journal/2013/10/08/tx-7
 {:data/type :finance/transaction
  :data/title "Dividend Reinvestment"
  :data/description "Automatic reinvestment."
  :time/at #inst "2013-10-08T00:00:00Z"
- :finance.transaction/entries [#data/link posting-1
-                               #data/link posting-2
-                               #data/link balance-check]
+ :finance.transaction/entries [#merkledag/link "posting-1"
+                               #merkledag/link "posting-2"
+                               #merkledag/link "balance-check"]
  :finance.transaction/state :cleared}
 
 
@@ -257,24 +273,24 @@
 ;; - items         A list of itemized 
 
 
-; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01
+; .../books/user/journal/2013/10/08/tx-7/posting-1
 {:data/type :finance/posting
  :time/at #inst "2013-10-08"
- :finance.posting/account #data/link paypal
+ :finance.posting/account #merkledag/link "@account"
  :finance.posting/balances {USD 23.71M}}
 
 
 {:data/type :finance/posting
  :data/description "Contacted customer service rep about disabling dividend reinvestment."
  :time/at #inst "2014-05-21"
- :finance.posting/account #data/link schwab-checking}
+ :finance.posting/account #merkledag/link "@account"}
 
 
 {:data/type :finance/posting
  :data/title "SCH US AGG BND ETF"
  :data/description "Rev Reinvest Shares"
  :time/at #inst "2013-10-08T00:00:00Z"
- :finance.posting/account #data/link schwab-individual
+ :finance.posting/account #merkledag/link "@account"
  :finance.posting/amount #finance/$ [1.0423M SCHZ]
  :finance.posting/cost #finance/$ [52.91M USD]}
 
@@ -299,7 +315,7 @@
 ;;     $12.22 ($127.29 @ 9.6%)
 
 
-; /ledgers/user/journals/general/2013/10/08/tx-07/posting-01/item-01
+; .../books/user/journal/2013/10/08/tx-7/posting-1/item-01
 {:data/type :finance/item
  :data/title "NOW Foods Creatine Powder, 2.2 Pounds"
  :data/description "..."
@@ -344,17 +360,17 @@
  :data/title "SCH US AGG BND ETF"
  :data/description "Rev Reinvest Shares"
  :time/at #inst "2013-10-08T00:00:00Z"
- :data/sources #{#data/link source-csv}
- :finance.posting/account #data/link schwab-individual
+ :data/sources #{#merkledag/link source-csv}
+ :finance.posting/account #merkledag/link schwab-individual
  :finance.posting/amount #finance/$ [-52.91M USD]}
 
 ; posting-2
 {:data/type :finance/posting
  :data/title "SCH US AGG BND ETF"
  :data/description "Rev Reinvest Shares"
- :data/sources #{#data/link source-csv}
+ :data/sources #{#merkledag/link source-csv}
  :time/at #inst "2013-10-08T00:00:00Z"
- :finance.posting/account #data/link schwab-individual
+ :finance.posting/account #merkledag/link schwab-individual
  :finance.posting/amount #finance/$ [1.0423M SCHZ]
  :finance.posting/cost #finance/$ [50.7643M USD]}
 
@@ -363,6 +379,6 @@
  :data/title "SCHZ - Reinvest Dividend"
  :data/description "Automatic dividend reinvestment."
  :time/at #inst "2013-10-08T00:00:00Z"
- :finance.transaction/entries [#data/link posting-1
-                               #data/link posting-2]
+ :finance.transaction/entries [#merkledag/link posting-1
+                               #merkledag/link posting-2]
  :finance.transaction/state :cleared}
