@@ -1,20 +1,18 @@
-(defproject mvxcvi/merkledag-finance "0.1.0-SNAPSHOT"
-  :description "Financial plugin for merkledag."
+(defproject mvxcvi/finance "0.2.0-SNAPSHOT"
+  :description "Financial data modeling."
   :url "https://github.com/greglook/merkledag-finance"
   :license {:name "Public Domain"
             :url "http://unlicense.org/"}
 
   :deploy-branches ["master"]
 
+  :aliases
+  {"kaocha" ["with-profile" "+kaocha" "run" "-m" "kaocha.runner"]}
+
   :dependencies
-  [[org.clojure/clojure "1.9.0-alpha14"]
-   [clj-time "0.13.0"]
-   [datascript "0.15.5"]
-   [instaparse "1.4.5"]
-   [mvxcvi/blocks "0.8.0"]
-   [mvxcvi/merkledag "0.2.0-SNAPSHOT"]
-   [mvxcvi/multihash "2.0.1"]
-   [mvxcvi/puget "1.0.1"]]
+  [[org.clojure/clojure "1.10.2"]
+   [datascript "1.0.4"]
+   [instaparse "1.4.10"]]
 
   :hiera
   {:vertical false
@@ -23,13 +21,19 @@
    :show-external false}
 
   :whidbey
-  {:tag-types {'org.joda.time.DateTime {'inst str}
-               'org.joda.time.LocalDate {'time/date str}
-               'org.joda.time.Interval {'time/interval #(vector (clj-time.core/start %) (clj-time.core/end %))}
-               'blocks.data.Block {'blocks.data.Block (partial into {})}
-               'merkledag.data.finance.types.Quantity {'finance/$ (juxt :value :commodity)}
-               'merkledag.link.MerkleLink {'data/link (juxt :name :target :tsize)}
-               'multihash.core.Multihash {'data/hash 'multihash.core/base58}}}
+  {:tag-types {'finance.types.Quantity {'finance/q (juxt :value :commodity)}}}
 
   :profiles
-  {:repl {:source-paths ["dev"]}})
+  {:repl
+   {:source-paths ["dev"]
+    :repl-options {:init-ns finance.repl}
+    :jvm-opts
+    ["-XX:-OmitStackTraceInFastThrow"]
+    :dependencies
+    [[org.clojure/tools.namespace "1.0.0"]
+     [clj-stacktrace "0.2.8"]
+     [mvxcvi/puget "1.3.1"]]}
+
+   :kaocha
+   {:dependencies
+    [[lambdaisland/kaocha "1.0.641"]]}})

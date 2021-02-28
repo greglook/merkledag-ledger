@@ -1,31 +1,24 @@
-(ns user
+(ns finance.repl
   (:require
-    [blocks.core :as block]
-    (clj-time
-      [coerce :as ctime]
-      [core :as time]
-      [format :as ftime])
     [clojure.data :refer [diff]]
     [clojure.java.io :as io]
     [clojure.repl :refer :all]
-    [clojure.spec :as s]
+    [clojure.spec.alpha :as s]
     [clojure.spec.gen :as gen]
     [clojure.stacktrace :refer [print-cause-trace]]
     [clojure.string :as str]
     [clojure.tools.namespace.repl :refer [refresh]]
-    [datascript.core :as d]
-    [instaparse.core :as insta]
-    [merkledag.core :as merkle]
-    (finance.core
-      [account :as account]
-      [commodity :as commodity]
-      [entry :as entry]
-      [load :as load]
-      [spec :as spec]
-      [transaction :as transaction])
+    [datascript.core :as ds]
+    ;[finance.core.account :as account]
+    ;[finance.core.commodity :as commodity]
+    ;[finance.core.entry :as entry]
+    ;[finance.core.load :as load]
+    ;[finance.core.spec :as spec]
+    ;[finance.core.transaction :as transaction]
     [finance.ledger.parse :as parse]
+    [instaparse.core :as insta]
     [puget.printer :as puget]
-    [user.db :as db]))
+    [finance.repl.db :as db]))
 
 
 (defn cprint
@@ -36,30 +29,31 @@
     {:width 120
      :print-color true
      :print-handlers
-     {java.util.UUID (puget/tagged-handler 'uuid str)
-      finance.core.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
-      org.joda.time.DateTime (puget/tagged-handler 'inst str)
-      org.joda.time.LocalDate (puget/tagged-handler 'time/date str)
-      org.joda.time.Interval (puget/tagged-handler 'time/interval #(vector (time/start %) (time/end %)))}}))
+     {;java.util.UUID (puget/tagged-handler 'uuid str)
+      ;finance.core.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+      ,,,}}))
+
+
+(defn stopwatch
+  "Construct a delay which will yield the number of milliseconds between this
+  function call and the time it is realized."
+  []
+  (let [start (System/nanoTime)]
+    (delay (/ (- (System/nanoTime) start) 1e6))))
 
 
 (defn human-duration
   "Converts a time duration in milliseconds to a human-friendly string."
   [elapsed]
   (cond
-    (> elapsed 60000)
-      (format "%d:%04.1f" (int (/ elapsed 60000)) (mod (/ elapsed 1000) 60))
-    (> elapsed 1000)
-      (format "%.3f seconds" (/ elapsed 1000))
+    (< 60000 elapsed)
+    (format "%d:%04.1f" (int (/ elapsed 60000)) (mod (/ elapsed 1000) 60))
+
+    (< 1000 elapsed)
+    (format "%.3f seconds" (/ elapsed 1000))
+
     :else
-      (format "%.3f ms" elapsed)))
-
-
-(defn nanos->ms
-  "Converts an integer duration in nanoseconds to a vector with a floating-point
-  millisecond time and the symbol `ms`."
-  [nanos]
-  [(/ nanos 1000000.0) 'ms])
+    (format "%.3f ms" elapsed)))
 
 
 (defn get-percentile
@@ -68,13 +62,16 @@
   (let [n (count xs)]
     (cond
       (= n 1)
-        (first xs)
+      (first xs)
+
       (<= p 0.0)
-        (first xs)
-      (>= p 1.0)
-        (last xs)
+      (first xs)
+
+      (<= 1.0 p)
+      (last xs)
+
       :else
-        (nth xs (int (* p n))))))
+      (nth xs (int (* p n))))))
 
 
 
@@ -109,47 +106,47 @@
    (debug-parse text 0 true))
   ([text index show?]
    (try
-     ; If showing this example, explicitly print input
+     ;; If showing this example, explicitly print input
      (when show?
        (printf "\nParsing entry %d:\n\n%s\n" index text))
-     ; Try parsing the text
+     ;; Try parsing the text
      (let [parses (insta/parses parse/ledger-parser text)]
        (cond
-         ; On failure, print out input and error message
+         ;; On failure, print out input and error message
          (insta/failure? parses)
-           (do (printf "\nParsing entry %d failed:\n\n" index)
-               (when-not show? (println text ""))
-               (cprint (insta/get-failure parses))
-               nil)
+         (do (printf "\nParsing entry %d failed:\n\n" index)
+             (when-not show? (println text ""))
+             (cprint (insta/get-failure parses))
+             nil)
 
-         ; If parsing is ambiguous, print first two and diff
+         ;; If parsing is ambiguous, print first two and diff
          (< 1 (count parses))
-           (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
-                       index (count parses))
-               (when-not show? (println text ""))
-               (cprint (take 2 parses))
-               (println "\nDifferences:")
-               (cprint (diff (first parses) (second parses)))
-               nil)
+         (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
+                     index (count parses))
+             (when-not show? (println text ""))
+             (cprint (take 2 parses))
+             (println "\nDifferences:")
+             (cprint (diff (first parses) (second parses)))
+             nil)
 
-         ; Try interpreting the parse
+         ;; Try interpreting the parse
          :else
-           (do
+         (do
+           (when show?
+             (println "Parsed:")
+             (cprint (first parses)))
+           (let [interpreted (parse/interpret-parse (first parses))
+                 entry (first interpreted)]
+             ;; If showing, explicitly print conversion:
              (when show?
-               (println "Parsed:")
-               (cprint (first parses)))
-             (let [interpreted (parse/interpret-parse (first parses))
-                   entry (first interpreted)]
-               ; If showing, explicitly print conversion:
-               (when show?
+               (println)
+               (println "Interpreted:")
+               (cprint interpreted)
+               (when-let [errors (s/explain (:data/type entry) entry)]
                  (println)
-                 (println "Interpreted:")
-                 (cprint interpreted)
-                 (when-let [errors (s/explain (:data/type entry) entry)]
-                   (println)
-                   (println "Validation errors:")
-                   (cprint errors)))
-               interpreted))))
+                 (println "Validation errors:")
+                 (cprint errors)))
+             interpreted))))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
        (when-not show? (println text ""))
@@ -165,29 +162,28 @@
   (let [groups (-> file io/file io/reader line-seq parse/group-lines)
         show-entries (set show-entries)
         error-limit 5
-        start (System/nanoTime)
-        get-elapsed #(/ (- (System/nanoTime) start) 1000000.0)]
+        elapsed (stopwatch)]
     (loop [entries groups
            index 0
            errors 0]
       (cond
-        ; Hit error limit
+        ;; Hit error limit
         (>= errors error-limit)
-          (let [total (+ index (count entries))]
-            (printf "\nStopping after %d errors at entry %d/%d (%.1f%%) in %s\n"
-                    error-limit index total (* (/ index total) 100.0)
-                    (human-duration (get-elapsed))))
+        (let [total (+ index (count entries))]
+          (printf "\nStopping after %d errors at entry %d/%d (%.1f%%) in %s\n"
+                  error-limit index total (* (/ index total) 100.0)
+                  (human-duration @elapsed)))
 
-        ; Parse next entry
+        ;; Parse next entry
         (seq entries)
-          (let [success? (debug-parse (first entries) index (show-entries index))]
-            (recur (rest entries) (inc index) (if success? errors (inc errors))))
+        (let [success? (debug-parse (first entries) index (show-entries index))]
+          (recur (rest entries) (inc index) (if success? errors (inc errors))))
 
-        ; Parsed everything without hitting error limit
+        ;; Parsed everything without hitting error limit
         :else
-          (do (printf "\nParsed %d entries with %d errors in %s\n"
-                      index errors (human-duration (get-elapsed)))
-              (zero? errors))))))
+        (do (printf "\nParsed %d entries with %d errors in %s\n"
+                    index errors (human-duration @elapsed))
+            (zero? errors))))))
 
 
 
@@ -204,9 +200,9 @@
          entries (debug-parse (nth groups index) index true)]
      (try
        (let [tx-updates (load/with-context book
-                          (->> entries
-                               (keep (partial load/entry-updates db))
-                               (doall)))]
+                                           (->> entries
+                                                (keep (partial load/entry-updates db))
+                                                (doall)))]
          (println)
          (println "Transaction updates:")
          (doseq [tx tx-updates] (cprint tx)))
@@ -220,14 +216,14 @@
   "Prints out the stat maps returned by `load-ledger!` in a human-readable
   format."
   [stats]
-  (let [get-ps
-        (fn [nums]
-          (if (= 1 (count nums))
-            (nanos->ms (first nums))
-            (->> [0.50 0.90 1.00]
-                 (map (partial get-percentile nums))
-                 (map nanos->ms)
-                 (mapv #(vec (cons %1 %2)) [:p50 :p90 :max]))))]
+  (letfn [(get-ps
+            [nums]
+            (if (= 1 (count nums))
+              [(first nums) 'ms]
+              (->> [0.50 0.90 1.00]
+                   (map (partial get-percentile nums))
+                   (map #(vector % 'ms))
+                   (mapv #(vec (cons %1 %2)) [:p50 :p90 :max]))))]
     (doseq [[stat numbers] stats]
       (when-not (= "finance.import" (namespace stat))
         (if (number? numbers)
@@ -243,19 +239,19 @@
   load the entries. Returns the updated stats map."
   [book stats [index text]]
   (try
-    (let [parse-start (System/nanoTime)
+    (let [parse-watch (stopwatch)
           entries (parse/parse-group text)
-          parse-elapsed (- (System/nanoTime) parse-start)]
+          parse-elapsed @parse-watch]
       (reduce
         (fn measure-load
           [stats entry]
           (let [type-key (load/entry-dispatch nil entry)
-                load-start (System/nanoTime)]
+                load-watch (stopwatch)]
             (load/load-entry! db/conn book entry)
             (update stats type-key
                     (fnil conj [])
                     {:parse parse-elapsed
-                     :load (- (System/nanoTime) load-start)})))
+                     :load @load-watch})))
         stats
         entries))
     (catch Exception ex
