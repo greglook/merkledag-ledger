@@ -482,4 +482,5 @@
        (io/reader)
        (line-seq)
        (group-lines)
-       (mapcat parse-group)))
+       (mapcat parse-group)
+       (vec)))

@@ -24,16 +24,20 @@
   {:tag-types {'finance.types.Quantity {'finance/q (juxt :value :commodity)}}}
 
   :profiles
-  {:repl
+  {:dev
+   {:dependencies
+    [[org.clojure/test.check "1.1.0"]]}
+
+   :repl
    {:source-paths ["dev"]
     :repl-options {:init-ns finance.repl}
     :jvm-opts
     ["-XX:-OmitStackTraceInFastThrow"]
     :dependencies
-    [[org.clojure/tools.namespace "1.0.0"]
+    [[org.clojure/tools.namespace "1.1.0"]
      [clj-stacktrace "0.2.8"]
      [mvxcvi/puget "1.3.1"]]}
 
    :kaocha
    {:dependencies
-    [[lambdaisland/kaocha "1.0.641"]]}})
+    [[lambdaisland/kaocha "1.0.732"]]}})
