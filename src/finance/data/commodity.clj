@@ -1,5 +1,6 @@
 (ns finance.data.commodity
   (:require
+    [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [clojure.string :as str]
@@ -21,12 +22,12 @@
   "Code symbol used to identify the commodity."
   (s/with-gen
     (s/and symbol? #(re-matches #"[a-zA-Z][a-zA-Z0-9_]*" (str %)))
-    #(let [number-chars (set (map char (range 48 58)))
-           upper-chars (set (map char (range 65 91)))
-           lower-chars (set (map char (range 97 123)))
-           prefix-chars (set/union upper-chars lower-chars)
-           body-chars (set/union number-chars upper-chars lower-chars #{\_})]
-       (gen/fmap
+    (let [number-chars (set (map char (range 48 58)))
+          upper-chars (set (map char (range 65 91)))
+          lower-chars (set (map char (range 97 123)))
+          prefix-chars (set/union upper-chars lower-chars)
+          body-chars (set/union number-chars upper-chars lower-chars #{\_})]
+      #(gen/fmap
          (fn [[prefix body]]
            (symbol (apply str prefix body)))
          (gen/tuple (gen/elements prefix-chars)

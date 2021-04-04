@@ -1,26 +1,30 @@
 (ns finance.data.time
   "Shared time-related data specs."
   (:require
-    [clojure.spec :as s])
+    [clojure.spec.alpha :as s]
+    [clojure.spec.gen.alpha :as gen])
   (:import
     (java.time
       Instant
       LocalDate)))
 
 
+;; Instant in time.
 (s/def ::instant
-  "Instant in time."
-  inst?)
+  (s/with-gen
+    #(instance? Instant %)
+    (s/gen inst?)))
 
 
+;; Calendar date associated with the entity.
 (s/def ::local-date
-  "Calendar date associated with the entity."
   #(instance? LocalDate %))
 
 
-#_
-(defattr :time/interval
-  "Interval in time the data occurred over."
+;; Interval in time the data occurred over.
+(s/def ::interval
+  any?
+  #_
   (s/with-gen
     #(instance? Interval %)
     #(gen/fmap

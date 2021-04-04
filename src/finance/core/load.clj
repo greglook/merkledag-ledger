@@ -4,15 +4,17 @@
   the data represented by the entry. This is distinct from _importing_ data,
   which involves parsing raw CSV lines and such."
   (:require
-    [clj-time.core :as time]
     [clojure.string :as str]
-    [datascript.core :as d]
-    (finance.core
-      [account :as account]
-      [entry :as entry]
-      [spec :as spec]
-      [transaction :as tx]
-      [types :as types])))
+    [datascript.core :as ds]
+    ;[finance.core.account :as account]
+    ;[finance.core.entry :as entry]
+    ;[finance.core.transaction :as tx]
+    ,,,))
+
+
+;; TODO: figure out where these should live - maybe in core and move the update
+;; functions into each entity ns? Alternately, keep this closer to the
+;; persistence code and out of the core data code.
 
 
 (def ^:private ^:dynamic *tx-context*
@@ -64,7 +66,6 @@
    (str/join ":" [(namespace kw) (name kw) (or id (rand-hex 24))])))
 
 
-
 ;; ## Data Integration
 
 (defn entry-dispatch
@@ -90,7 +91,7 @@
     (when-let [updates (->> (entry-updates @conn entry)
                             (remove nil?)
                             (seq))]
-      (d/transact! conn updates))))
+      (ds/transact! conn updates))))
 
 
 (defmethod entry-updates :default
@@ -103,13 +104,13 @@
 
 (defmethod entry-updates nil
   [db _]
-  ; Ignored
+  ;; Ignored
   nil)
 
 
 (defmethod entry-updates ::ignored
   [db ignored]
-  ; Ignored
+  ;; Ignored
   nil)
 
 
@@ -118,20 +119,22 @@
 (derive :finance.import/IncludeFile   ::ignored)
 
 
+#_
 (defmethod entry-updates :finance/commodity
   [db commodity]
   ;(s/validate schema/CommodityDefinition commodity)
   (let [code (:finance.commodity/code commodity)
-        entity (d/entity db [:finance.commodity/code code])]
+        entity (ds/entity db [:finance.commodity/code code])]
     [(assoc commodity :db/id (id-or-temp! entity))]))
 
 
+#_
 (defmethod entry-updates :finance/price
   [db price]
   ;(s/validate schema/CommodityPrice price)
   (let [code  (:finance.price/commodity price)
         value (:finance.price/value price)
-        commodity (d/entity db [:finance.commodity/code code])]
+        commodity (ds/entity db [:finance.commodity/code code])]
     (when-not commodity
       (throw (ex-info (str "Cannot import price for nonexistent commodity " code)
                       {:commodity code
@@ -143,6 +146,7 @@
       :time/at (:time/at price)}]))
 
 
+#_
 (defmethod entry-updates :finance/account
   [db account]
   (when-not (:book *tx-context*)
@@ -160,6 +164,7 @@
             :finance.account/book book)]))
 
 
+#_
 (defmethod entry-updates :finance/transaction
   [db transaction]
   ;(s/validate schema/Transaction transaction)
@@ -174,6 +179,7 @@
       (apply concat updates))))
 
 
+#_
 (defn- update-transaction-entry
   "Applies common updates to a transaction entry. Returns the entry value with
   a temporary `:db/id` and corrected account reference."
@@ -188,14 +194,15 @@
                       :finance.entry/account (:db/id account))]
     (if (:finance.entry/rank entry')
       entry'
-      (let [[rank] (d/q '[:find [(count ?e)]
-                          :in $ ?account ?time
-                          :where [?e :time/at ?time]
-                                 [?e :finance.entry/account ?account]]
-                        db (:db/id account) (:time/at entry))]
+      (let [[rank] (ds/q '[:find [(count ?e)]
+                           :in $ ?account ?time
+                           :where [?e :time/at ?time]
+                           [?e :finance.entry/account ?account]]
+                         db (:db/id account) (:time/at entry))]
         (assoc entry' :finance.entry/rank (or rank 0))))))
 
 
+#_
 (defmethod entry-updates :finance.entry/posting
   [db posting]
   ;(s/validate schema/Posting posting)
@@ -210,17 +217,18 @@
         ; if price but no cost, infer
         (and (:finance.posting/price posting)
              (nil? (:finance.posting/cost posting)))
-          (assoc :finance.posting/cost
-                 {:amount (:finance.posting/price posting)
-                  :date (->> (:time/at posting)
-                             ((juxt time/year time/month time/day))
-                             (apply time/local-date))})
+        (assoc :finance.posting/cost
+               {:amount (:finance.posting/price posting)
+                :date (->> (:time/at posting)
+                           #_((juxt time/year time/month time/day))
+                           #_(apply time/local-date))})
         ; link to invoice if items are present
         (seq invoice-updates)
-          (assoc :finance.posting/invoice (:db/id (first invoice-updates))))
+        (assoc :finance.posting/invoice (:db/id (first invoice-updates))))
       invoice-updates)))
 
 
+#_
 (defmethod entry-updates ::entry
   [db entry]
   ;(s/validate schema/JournalEntry entry)
@@ -233,6 +241,7 @@
 (derive :finance.entry/balance-check ::entry)
 
 
+#_
 (defmethod entry-updates :finance/invoice
   [db invoice]
   ;(s/validate schema/Invoice invoice)
@@ -247,6 +256,7 @@
       (apply concat item-updates))))
 
 
+#_
 (defmethod entry-updates :finance/item
   [db item]
   ;(s/validate schema/LineItem item)

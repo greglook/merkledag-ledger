@@ -1,10 +1,6 @@
 (ns finance.ledger.print
   "Ledger file printing code."
   (:require
-    (clj-time
-      [coerce :as ctime]
-      [core :as time]
-      [format :as ftime])
     [clojure.java.io :as io]
     [clojure.string :as str]))
 
@@ -21,7 +17,6 @@
   file contents."
   [entries]
   (str/join "\n\n" (map (comp str/trim render-entry) entries)))
-
 
 
 ;; ## Entry Rendering Methods

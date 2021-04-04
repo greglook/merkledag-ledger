@@ -1,13 +1,12 @@
 (ns finance.ledger.parse
   "Ledger file parsing code."
   (:require
-    (clj-time
-      [coerce :as ctime]
-      [core :as time]
-      [format :as ftime])
+    ;[clj-time.coerce :as ctime]
+    ;[clj-time.core :as time]
+    ;[clj-time.format :as ftime]
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [finance.core.types :as types]
+    ;[finance.core.types :as types]
     [instaparse.core :as parse]))
 
 
@@ -18,6 +17,8 @@
 (def time-format
   "Formats to accept for time values. This parses dates in the **local**
   time-zone if one is not specified."
+  nil
+  #_
   (ftime/formatter
     (time/default-time-zone)
     "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
@@ -28,11 +29,11 @@
     "yyyy-MM-dd'T'HH:mm"))
 
 
-
 ;; ## Parse Helpers
 
 (defn- parse-time
   [date time zone]
+  #_
   (-> (if zone
         (ftime/with-zone time-format zone)
         time-format)
@@ -43,6 +44,7 @@
   "Converts a `LocalDate` value into a `DateTime` representing midnight on
   that calendar date in the default time zone."
   [date]
+  #_
   (-> date
       (ctime/to-date-time)
       (time/from-time-zone (time/default-time-zone))))
@@ -56,11 +58,11 @@
   (if-let [date (get obj date-key)]
     (let [t (get obj time-key)]
       (assoc obj
-        time-key
-        (if (and (vector? t) (= :Time (first t)))
-          (let [[_ time-str zone] t]
-            (parse-time date time-str zone))
-          (or t (date->time date)))))
+             time-key
+             (if (and (vector? t) (= :Time (first t)))
+               (let [[_ time-str zone] t]
+                 (parse-time date time-str zone))
+               (or t (date->time date)))))
     obj))
 
 
@@ -178,10 +180,11 @@
     collectors))
 
 
-
 ;; ## Parse Interpreters
 
 (def basic-transforms
+  {}
+  #_
   {:Date ftime/parse-local-date
 
    :DateTime
@@ -211,14 +214,14 @@
      [& [v1 v2 :as children]]
      (cond
        (and (= "0" v1) (nil? v2))
-         nil
+       nil
        (and (number? v1) (symbol? v2))
-         (types/->Quantity v1 v2)
+       (types/->Quantity v1 v2)
        (and (symbol? v1) (number? v2))
-         (types/->Quantity v2 v1)
+       (types/->Quantity v2 v1)
        :else
-         (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
-                         {:form children}))))})
+       (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
+                       {:form children}))))})
 
 
 (def commodity-transforms
@@ -373,26 +376,26 @@
           (as-> posting
             (cond-> posting
               (::lot-cost posting)
-                (update :finance.posting/cost assoc :amount (::lot-cost posting))
+              (update :finance.posting/cost assoc :amount (::lot-cost posting))
               (::lot-date posting)
-                (update :finance.posting/cost assoc :date (::lot-date posting))
+              (update :finance.posting/cost assoc :date (::lot-date posting))
               (seq (:finance.posting/invoice posting))
-                (assoc :finance.posting/invoice
-                       {:data/type :finance/invoice
-                        :finance.invoice/items (vec (:finance.posting/invoice posting))})
+              (assoc :finance.posting/invoice
+                     {:data/type :finance/invoice
+                      :finance.invoice/items (vec (:finance.posting/invoice posting))})
               (= posting-type :virtual)
-                (assoc :finance.posting/virtual true)
+              (assoc :finance.posting/virtual true)
               ; Automatically detect balance-check entries.
               (and (or (nil? (:value amount))
                        (zero? (:value amount)))
                    (= :balanced-virtual posting-type)
                    (:finance.balance/amount posting))
-                (-> (assoc :data/type :finance.entry/balance-check)
-                    (dissoc :finance.posting/amount))
+              (-> (assoc :data/type :finance.entry/balance-check)
+                  (dissoc :finance.posting/amount))
               ; If type is overridden and amount is zero, remove it.
               (and (not= :finance.entry/posting (:data/type posting))
                    (or (nil? (:value amount)) (zero? (:value amount))))
-                (dissoc :finance.posting/amount)))
+              (dissoc :finance.posting/amount)))
           (dissoc ::lot-cost ::lot-date))]))
 
    :LineItemTaxGroup keyword
@@ -432,7 +435,6 @@
       (throw (ex-info (str "Failed to interpret parse tree: " tree)
                       {:tree tree}
                       e)))))
-
 
 
 ;; ## File Parsing

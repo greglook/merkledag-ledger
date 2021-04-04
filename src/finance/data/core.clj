@@ -2,6 +2,7 @@
   "Core data definitions for the financial data schema and related helpers."
   (:require
     [clojure.spec.alpha :as s]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.string :as str]))
 
 
