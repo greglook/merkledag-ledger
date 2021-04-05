@@ -4,19 +4,129 @@
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [clojure.string :as str]
-    [finance.data.asset :as asset]
     [finance.data.core :as data :refer [defattr defentity]]))
 
 
-(defattr ::name
-  "Human-meaningful name of the commodity."
-  ::data/some-string)
+;; ## Asset Information
+
+(def asset-types
+  "Set of names for some common asset types."
+  #{:currency
+    :bond
+    :stock
+    :mutual-fund
+    :exchange-traded-fund
+    :reward-points})
 
 
-(defattr ::description
-  "Long-form descriptive text for the commodity."
-  string?)
+(def asset-classes
+  "Set of names for some common asset classes."
+  #{:cash
+    :intl-government-bond
+    :intl-corporate-bond
+    :us-government-bond
+    :us-corporate-bond
+    :us-municipal-bond
+    :p2p-lending
+    :intl-developed-stock
+    :intl-emerging-stock
+    :us-large-cap-value
+    :us-large-cap-core
+    :us-large-cap-growth
+    :us-mid-cap-value
+    :us-mid-cap-core
+    :us-mid-cap-growth
+    :us-small-cap-value
+    :us-small-cap-core
+    :us-small-cap-growth
+    :currency
+    :real-estate
+    :gold
+    :commodities
+    :other})
 
+
+(def asset-class-tree
+  "Vector tree representing the asset class hierarchy."
+  [:all
+   [:cash]
+   [:fixed-income
+    [:intl-bonds
+     [:intl-government-bond]
+     [:intl-corporate-bond]]
+    [:us-bonds
+     [:us-government-bond]
+     [:us-corporate-bond]
+     [:us-municipal-bond]]
+    [:p2p-lending]]
+   [:equities
+    [:intl-stocks
+     [:intl-developed-stock]
+     [:intl-emerging-stock]]
+    [:us-stocks
+     [:us-large-cap
+      [:us-large-cap-value]
+      [:us-large-cap-core]
+      [:us-large-cap-growth]]
+     [:us-mid-cap
+      [:us-mid-cap-value]
+      [:us-mid-cap-core]
+      [:us-mid-cap-growth]]
+     [:us-small-cap
+      [:us-small-cap-value]
+      [:us-small-cap-core]
+      [:us-small-cap-growth]]]]
+   [:alternatives
+    [:currency]
+    [:real-estate]
+    [:gold]
+    [:commodities]
+    [:other]]])
+
+
+(def asset-sectors
+  "Set of names for some common commodity sectors."
+  #{:basic-materials
+    :communication-services
+    :consumer-cyclical
+    :consumer-defensive
+    :energy
+    :financial-services
+    :healthcare
+    :industrials
+    :technology
+    :utilities})
+
+
+(defn- distribution-map
+  "Creates a spec for a key type which can either be a single keyword or a map
+  of keys whose values sum to one."
+  [key-spec]
+  (s/or
+    :single key-spec
+    :multi (s/with-gen
+             (s/and (s/map-of key-spec
+                              (s/double-in :min 0.0
+                                           :max 1.0
+                                           :infinite? false
+                                           :NaN? false))
+                    #(== 1 (reduce + (vals %))))
+             #(gen/fmap
+                (fn [m]
+                  (if (= 1 (count m))
+                    (key (first m))
+                    (let [total (reduce + (vals m))]
+                      (into {} (map (fn [[k v]] [k (/ v total)]) m)))))
+                (gen/map (s/gen key-spec)
+                         (s/double-in :min 0.0
+                                      :infinite? false
+                                      :NaN? false)
+                         {:min-elements 1
+                          :max-elements 10})))))
+
+
+
+;; ## Commodity Attributes
 
 (defattr ::code
   "Code symbol used to identify the commodity."
@@ -35,6 +145,21 @@
   :db/unique :db.unique/identity)
 
 
+(defattr ::name
+  "Human-meaningful name of the commodity."
+  ::data/some-string)
+
+
+(defattr ::type
+  "Type of value that this asset represents."
+  asset-types)
+
+
+(defattr ::description
+  "Long-form descriptive text for the commodity."
+  string?)
+
+
 (defattr ::symbol
   "One-character string to prefix currency amounts with."
   (s/with-gen
@@ -50,13 +175,23 @@
   integer?)
 
 
+(defattr ::asset-class
+  "Map of asset class breakdowns or single class keyword."
+  (distribution-map asset-classes))
+
+
+(defattr ::asset-sector
+  "Map of asset sector breakdowns or single sector keyword."
+  (distribution-map asset-sectors))
+
+
 (defentity :finance.data/commodity
-  "..."
-  :req [::name
-        ::code
-        ::asset/type]
+  "A commodity defines a type of value storage and exchange."
+  :req [::code
+        ::name
+        ::type]
   :opt [::description
         ::symbol
         ::precision
-        ::asset/class
-        ::asset/sector])
+        ::asset-class
+        ::asset-sector])
