@@ -17,7 +17,7 @@
   :hiera
   {:vertical false
    :cluster-depth 4
-   :ignore-ns #{clojure}
+   :ignore-ns #{clojure finance.data.core}
    :show-external false}
 
   :whidbey

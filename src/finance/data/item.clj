@@ -1,7 +1,6 @@
 (ns finance.data.item
   (:require
     [clojure.spec.alpha :as s]
-    [finance.data.commodity :as commodity]
     [finance.data.core :refer [defattr defentity]]
     [finance.data.quantity :as quantity]))
 

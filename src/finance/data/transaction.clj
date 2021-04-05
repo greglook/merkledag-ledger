@@ -2,6 +2,7 @@
   (:require
     [clojure.spec.alpha :as s]
     [datascript.core :as ds]
+    [finance.data.book :as book]
     [finance.data.entry :as entry]
     [finance.data.core :refer [defattr defentity]]
     [finance.data.time :as time]))
@@ -34,7 +35,8 @@
 
 (defentity :finance.data/transaction
   "..."
-  :req [::date
+  :req [::book/id
+        ::date
         ::title
         ::entries]
   :opt [::time
