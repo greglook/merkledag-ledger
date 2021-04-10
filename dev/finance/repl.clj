@@ -4,21 +4,29 @@
     [clojure.java.io :as io]
     [clojure.repl :refer :all]
     [clojure.spec.alpha :as s]
-    [clojure.spec.gen :as gen]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.stacktrace :refer [print-cause-trace]]
     [clojure.string :as str]
     [clojure.tools.namespace.repl :refer [refresh]]
     [datascript.core :as ds]
-    ;[finance.core.account :as account]
-    ;[finance.core.commodity :as commodity]
-    ;[finance.core.entry :as entry]
-    ;[finance.core.load :as load]
-    ;[finance.core.spec :as spec]
-    ;[finance.core.transaction :as transaction]
-    [finance.ledger.parse :as parse]
+    [finance.data.account :as account]
+    [finance.data.balance :as balance]
+    [finance.data.book :as book]
+    [finance.data.budget :as budget]
+    [finance.data.commodity :as commodity]
+    [finance.data.core :as data]
+    [finance.data.entry :as entry]
+    [finance.data.invoice :as invoice]
+    [finance.data.item :as item]
+    [finance.data.posting :as posting]
+    [finance.data.price :as price]
+    [finance.data.quantity :as quantity]
+    [finance.data.transaction :as transaction]
+    [finance.format.ledger :as ledger]
+    [finance.format.ledger.parse :as ledger.parse]
+    [finance.repl.db :as db]
     [instaparse.core :as insta]
-    [puget.printer :as puget]
-    [finance.repl.db :as db]))
+    [puget.printer :as puget]))
 
 
 (defn cprint
@@ -74,30 +82,35 @@
       (nth xs (int (* p n))))))
 
 
-
 ;; ## Parsing Tools
 
 (defn reload-grammar!
   "Recreate the Ledger parser by loading the grammar file."
   []
-  (alter-var-root #'parse/ledger-parser (constantly (insta/parser (io/resource "grammar/ledger.bnf"))))
+  (let [parser (#'ledger.parse/load-grammar)
+        p (promise)]
+    (deliver p parser)
+    (alter-var-root #'ledger.parse/ledger-parser (constantly p)))
   :reloaded)
 
 
+#_
 (defn find-groups
   "Searches through the groups in a file to find ones which match the given
   pattern. Returns a sequence of indices for the matching groups."
   [file pattern]
-  (->> file io/file io/reader line-seq parse/group-lines
+  (->> file io/file io/reader line-seq ledger.parse/group-lines
        (keep-indexed #(when (re-seq pattern %2) %1))))
 
 
+#_
 (defn get-group
   "Reads a line group out of a file by index."
   [file index]
-  (-> file io/file io/reader line-seq parse/group-lines (nth index)))
+  (-> file io/file io/reader line-seq ledger.parse/group-lines (nth index)))
 
 
+#_
 (defn debug-parse
   "Attempts to parse the given text using the current parser. Returns the
   interpreted data structure if the text parsed successfully, or nil on error.
@@ -110,7 +123,7 @@
      (when show?
        (printf "\nParsing entry %d:\n\n%s\n" index text))
      ;; Try parsing the text
-     (let [parses (insta/parses parse/ledger-parser text)]
+     (let [parses (insta/parses @ledger.parse/ledger-parser text)]
        (cond
          ;; On failure, print out input and error message
          (insta/failure? parses)
@@ -135,7 +148,7 @@
            (when show?
              (println "Parsed:")
              (cprint (first parses)))
-           (let [interpreted (parse/interpret-parse (first parses))
+           (let [interpreted (ledger.parse/interpret-parse (first parses))
                  entry (first interpreted)]
              ;; If showing, explicitly print conversion:
              (when show?
@@ -154,12 +167,13 @@
        nil))))
 
 
+#_
 (defn test-parser
   "Tests the parser by running it against the line groups in the given file.
   Any extra arguments will explicitly print out the results of parsing the
   groups at those indices."
   [file & show-entries]
-  (let [groups (-> file io/file io/reader line-seq parse/group-lines)
+  (let [groups (-> file io/file io/reader line-seq ledger.parse/group-lines)
         show-entries (set show-entries)
         error-limit 5
         elapsed (stopwatch)]
@@ -189,13 +203,14 @@
 
 ;; ## Data Integration
 
+#_
 (defn inspect-file
   "Inspects the parsing of a group in the given file. If no index is given, one
   is selected at random."
   ([file]
    (inspect-file file nil))
   ([file index & {:keys [book db], :or {book "repl", db @db/conn}}]
-   (let [groups (-> file io/file io/reader line-seq parse/group-lines)
+   (let [groups (-> file io/file io/reader line-seq ledger.parse/group-lines)
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
      (try
@@ -212,6 +227,7 @@
          (print-cause-trace e))))))
 
 
+#_
 (defn print-stats
   "Prints out the stat maps returned by `load-ledger!` in a human-readable
   format."
@@ -233,6 +249,7 @@
                          :load  (get-ps (sort (map :load numbers)))}]))))))
 
 
+#_
 (defn measured-import!
   "Accepts a chunk of text to parse and import into the database. Updates the
   given stats map with a datapoint measuring the nanoseconds taken to parse and
@@ -240,7 +257,7 @@
   [book stats [index text]]
   (try
     (let [parse-watch (stopwatch)
-          entries (parse/parse-group text)
+          entries (ledger.parse/parse-group text)
           parse-elapsed @parse-watch]
       (reduce
         (fn measure-load
@@ -265,6 +282,7 @@
       (update stats :errors (fnil inc 0)))))
 
 
+#_
 (defn load-ledger!
   "Parses, interprets, and loads all entries in `file` into the database in
   `db/conn`. Prints out the number of each entity loaded and the total time
@@ -272,7 +290,7 @@
   [book file & {:as opts}]
   (let [group-entries (if (:price-db opts)
                         (partial map #(str % "\n"))
-                        parse/group-lines)]
+                        ledger.parse/group-lines)]
     (->>
       file
       (io/file)
@@ -283,6 +301,7 @@
       (reduce (partial measured-import! book) (sorted-map)))))
 
 
+#_
 (defn load-commodities!
   [ledger-root]
   (println "Loading commodity definitions...")
@@ -290,6 +309,7 @@
     (time (print-stats (load-ledger! nil path)))))
 
 
+#_
 (defn load-prices!
   [ledger-root]
   (println "Loading price history...")
@@ -297,6 +317,7 @@
     (time (print-stats (load-ledger! nil path :price-db true)))))
 
 
+#_
 (defn load-books!
   [ledger-root book]
   (let [book-dir (io/file ledger-root "books" book)
@@ -311,6 +332,7 @@
         (println)))))
 
 
+#_
 (defn load-all!
   [ledger-root]
   (time

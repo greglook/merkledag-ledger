@@ -12,7 +12,7 @@
 (defn- create-db
   "Creates a new empty database from the `db-schema` var."
   []
-  (let [schema-var (resolve 'finance.core.spec/attributes)]
+  (when-let [schema-var (resolve 'finance.data.core/attributes)]
     (ds/create-conn @schema-var)))
 
 

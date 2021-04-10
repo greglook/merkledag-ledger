@@ -10,9 +10,14 @@
     [instaparse.core :as parse]))
 
 
+(defn- load-grammar
+  "Loads and parses the grammar resource."
+  []
+  (parse/parser (io/resource "finance/format/ledger/grammar.bnf")))
+
+
 (def ledger-parser
-  (delay
-    (parse/parser (io/resource "finance/format/ledger/grammar.bnf"))))
+  (delay (load-grammar)))
 
 
 (def time-format
@@ -456,7 +461,7 @@
   value)
 
 
-(defn- group-lines
+(defn group-lines
   "Takes a sequence of lines and returns a new lazy sequence of groups of lines
   which were separated by blank lines in the input."
   [lines]
@@ -466,7 +471,7 @@
        (map #(str (str/join "\n" %) "\n"))))
 
 
-(defn- parse-group
+(defn parse-group
   "Parses a group of lines from a file, returning an interpreted ledger entry.
   Throws an exception if the parser fails."
   [text]
