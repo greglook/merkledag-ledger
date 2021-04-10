@@ -1,4 +1,4 @@
-(ns finance.ledger.parse
+(ns finance.format.ledger.parse
   "Ledger file parsing code."
   (:require
     ;[clj-time.coerce :as ctime]
@@ -11,7 +11,8 @@
 
 
 (def ledger-parser
-  (parse/parser (io/resource "grammar/ledger.bnf")))
+  (delay
+    (parse/parser (io/resource "finance/format/ledger/grammar.bnf"))))
 
 
 (def time-format
@@ -437,7 +438,7 @@
                       e)))))
 
 
-;; ## File Parsing
+;; ## Text Parsing
 
 (defn- add-source
   "Adds metadata to the entry with the original parse text."
@@ -455,8 +456,8 @@
   value)
 
 
-(defn group-lines
-  "Takes a sequence of lines and returns a new sequence of groups of lines
+(defn- group-lines
+  "Takes a sequence of lines and returns a new lazy sequence of groups of lines
   which were separated by blank lines in the input."
   [lines]
   (->> lines
@@ -465,24 +466,20 @@
        (map #(str (str/join "\n" %) "\n"))))
 
 
-(defn parse-group
+(defn- parse-group
   "Parses a group of lines from a file, returning an interpreted ledger entry.
   Throws an exception if the parser fails."
   [text]
-  (->> text
-       (ledger-parser)
-       (check-parse!)
-       (interpret-parse)
-       (map (partial add-source text))))
+  (let [parse @ledger-parser]
+    (->> (parse text)
+         (check-parse!)
+         (interpret-parse)
+         (map (partial add-source text)))))
 
 
-(defn parse-file
-  "Parse a single file, returning a sequence of interpreted ledger entries."
-  [file]
-  (->> file
-       (io/file)
-       (io/reader)
-       (line-seq)
+(defn parse-lines
+  "Parse a sequence of lines into a (lazy) sequence of entity maps."
+  [lines]
+  (->> lines
        (group-lines)
-       (mapcat parse-group)
-       (vec)))
+       (mapcat parse-group)))

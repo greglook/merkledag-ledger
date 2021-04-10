@@ -1,4 +1,4 @@
-(ns finance.ledger.print
+(ns finance.format.ledger.print
   "Ledger file printing code."
   (:require
     [clojure.java.io :as io]
