@@ -9,6 +9,8 @@
       LocalDate)))
 
 
+;; ## Data Specs
+
 ;; Instant in time.
 (s/def ::instant
   (s/with-gen

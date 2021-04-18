@@ -1,11 +1,12 @@
-(ns finance.core.entry-test
+(ns finance.data.entry-test
   (:require
-    [clj-time.core :as time]
     [clojure.test :refer :all]
-    [finance.core.entry :as entry]
-    [finance.core.types :as types]))
+    [finance.data.entry :as entry]
+    [finance.data.quantity :as quantity]
+    [finance.data.time :as time]))
 
 
+#_
 (deftest entry-weights
   (testing "non-weighted entries"
     (is (nil? (entry/weight {:data/type :finance.entry/balance-check
@@ -35,6 +36,7 @@
                           :finance.posting/amount (types/q 80.00M 'ABCD)})))))
 
 
+#_
 (deftest interpolate-missing-amounts
   (testing "without any postings"
     (is (= [] (entry/interpolate-amounts []))))

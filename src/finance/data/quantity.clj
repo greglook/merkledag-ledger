@@ -6,13 +6,21 @@
     [finance.data.core :as data :refer [defattr defentity]]))
 
 
-(def ^:const quantity-tag
-  "Symbol used to identify quantity values."
-  'finance/q)
-
+;; ## Quantity Type
 
 (defrecord Quantity
   [value commodity])
+
+
+(alter-meta! #'->Quantity assoc :private true)
+(alter-meta! #'map->Quantity assoc :private true)
+
+
+(defn q
+  "Constructs a new quantity from the given amount and commodity symbol."
+  [amount commodity]
+  {:pre [(number? amount) (symbol? commodity)]}
+  (->Quantity amount commodity))
 
 
 (defn quantity?
@@ -23,11 +31,12 @@
        (symbol? (:commodity x))))
 
 
-(defn q
-  "Constructs a new quantity from the given amount and commodity symbol."
-  [amount commodity]
-  {:pre [(number? amount) (symbol? commodity)]}
-  (->Quantity amount commodity))
+
+;; ## Encoding
+
+(def ^:const quantity-tag
+  "Symbol used to identify quantity values."
+  'finance/q)
 
 
 (defn quantity->form
@@ -44,10 +53,14 @@
   (->Quantity (first v) (second v)))
 
 
+;; TODO: human friendly printed rep?
 (defmethod print-method Quantity
   [quantity writer]
   (print-method (tagged-literal quantity-tag (quantity->form quantity)) writer))
 
+
+
+;; ## Data Specs
 
 (s/def ::value number?)
 

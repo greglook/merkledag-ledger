@@ -1,12 +1,15 @@
 (ns finance.format.ledger.parse
   "Ledger file parsing code."
   (:require
-    ;[clj-time.coerce :as ctime]
-    ;[clj-time.core :as time]
-    ;[clj-time.format :as ftime]
     [clojure.java.io :as io]
     [clojure.string :as str]
-    ;[finance.core.types :as types]
+    [finance.data.account :as account]
+    [finance.data.commodity :as commodity]
+    [finance.data.core :as data]
+    [finance.data.price :as price]
+    [finance.data.quantity :as quantity]
+    [finance.data.time :as time]
+    [finance.data.transaction :as transaction]
     [instaparse.core :as parse]))
 
 
@@ -221,10 +224,13 @@
      (cond
        (and (= "0" v1) (nil? v2))
        nil
+
        (and (number? v1) (symbol? v2))
-       (types/->Quantity v1 v2)
+       (quantity/q v1 v2)
+
        (and (symbol? v1) (number? v2))
-       (types/->Quantity v2 v1)
+       (quantity/q v2 v1)
+
        :else
        (throw (ex-info (str "Unknown quantity format! " (pr-str [v1 v2]))
                        {:form children}))))})

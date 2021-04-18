@@ -21,6 +21,7 @@
     [finance.data.posting :as posting]
     [finance.data.price :as price]
     [finance.data.quantity :as quantity]
+    [finance.data.time :as time]
     [finance.data.transaction :as transaction]
     [finance.format.ledger :as ledger]
     [finance.format.ledger.parse :as ledger.parse]
