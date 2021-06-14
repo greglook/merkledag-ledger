@@ -4,13 +4,18 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [finance.data.account :as account]
+    [finance.data.balance :as balance]
     [finance.data.commodity :as commodity]
     [finance.data.core :as data]
+    [finance.data.entry :as entry]
+    [finance.data.item :as item]
+    [finance.data.posting :as posting]
     [finance.data.price :as price]
     [finance.data.quantity :as quantity]
     [finance.data.time :as time]
     [finance.data.transaction :as transaction]
-    [instaparse.core :as parse]))
+    [instaparse.core :as parse]
+    [tick.alpha.api :as t]))
 
 
 (defn- load-grammar
@@ -23,40 +28,16 @@
   (delay (load-grammar)))
 
 
-(def time-format
-  "Formats to accept for time values. This parses dates in the **local**
-  time-zone if one is not specified."
-  nil
-  #_
-  (ftime/formatter
-    (time/default-time-zone)
-    "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-    "yyyy-MM-dd'T'HH:mm:ss.SSS"
-    "yyyy-MM-dd'T'HH:mm:ssZ"
-    "yyyy-MM-dd'T'HH:mm:ss"
-    "yyyy-MM-dd'T'HH:mmZ"
-    "yyyy-MM-dd'T'HH:mm"))
-
-
 ;; ## Parse Helpers
 
 (defn- parse-time
-  [date time zone]
-  #_
-  (-> (if zone
-        (ftime/with-zone time-format zone)
-        time-format)
-      (ftime/parse (str date "T" time))))
-
-
-(defn- date->time
-  "Converts a `LocalDate` value into a `DateTime` representing midnight on
-  that calendar date in the default time zone."
-  [date]
-  #_
-  (-> date
-      (ctime/to-date-time)
-      (time/from-time-zone (time/default-time-zone))))
+  [date time-str zone]
+  (if time-str
+    (let [inst (t/parse (str date "T" time-str))]
+      (if zone
+        (t/in inst zone)
+        inst))
+    (t/parse date)))
 
 
 (defn- update-time
@@ -71,7 +52,7 @@
              (if (and (vector? t) (= :Time (first t)))
                (let [[_ time-str zone] t]
                  (parse-time date time-str zone))
-               (or t (date->time date)))))
+               (or t (t/midnight date)))))
     obj))
 
 
@@ -89,13 +70,13 @@
   ([obj meta-tag field-key]
    (lift-meta obj meta-tag field-key identity))
   ([obj meta-tag field-key f]
-   (if-let [value (get-in obj [:data/tags meta-tag])]
+   (if-let [value (get-in obj [::data/tags meta-tag])]
      (-> obj
          (assoc field-key (f value))
-         (update :data/tags dissoc meta-tag)
+         (update ::data/tags dissoc meta-tag)
          (as-> obj'
-           (if (empty? (:data/tags obj'))
-             (dissoc obj' :data/tags)
+           (if (empty? (::data/tags obj'))
+             (dissoc obj' ::data/tags)
              obj')))
      obj)))
 
@@ -192,21 +173,16 @@
 ;; ## Parse Interpreters
 
 (def basic-transforms
-  {}
-  #_
-  {:Date ftime/parse-local-date
+  {:Date
+   t/parse
 
    :DateTime
    (fn ->date-time
-     [date [_ time tz]]
-     (parse-time date time tz))
+     [date [_ time-str zone]]
+     (parse-time date time-str zone))
 
    :TimeZone
-   (fn ->time-zone
-     [zone]
-     (case zone
-       "Z" time/utc
-       (time/time-zone-for-id zone)))
+   t/zone
 
    :Number
    (fn ->number
@@ -216,7 +192,52 @@
    :Percentage
    (fn ->percentage
      [number]
-     (/ number 100))
+     (/ number 100))})
+
+
+(def commodity-transforms
+  {:CommodityCode
+   (fn ->commodity-code
+     [code]
+     (if (= "$" code)
+       'USD
+       (symbol code)))
+
+   :CommodityDefinition
+   (fn ->commodity
+     [code & children]
+     (->
+       {::data/type :finance.data/commodity
+        ::commodity/code code}
+       (collect
+         {::data/tags      (collect-map :MetaDirective)
+          ::commodity/name (collect-one :NoteDirective)
+          ::format         (collect-one :CommodityFormat)
+          ::options        (collect-all :CommodityOption)}
+         children)
+       (lift-meta :type ::commodity/type keyword)
+       (lift-meta :class ::commodity/class keyword)
+       (lift-meta :sector ::commodity/sector keyword)
+       (as-> commodity
+         (if-not (::commodity/name commodity)
+           (assoc commodity ::commodity/name (str code))
+           commodity)
+         (let [fmt (::format commodity)]
+           (if (and fmt (not (re-seq #"^\d" fmt)))
+             (assoc commodity ::commodity/currency-symbol (subs fmt 0 1))
+             commodity)))
+       ;; These are unused at the moment.
+       (dissoc ::format ::options)))
+
+   :CommodityPrice
+   (fn ->commodity-price
+     [date-time code price]
+     {::data/type :finance.data/price
+      ::price/time (if (t/date? date-time)
+                     (t/midnight date-time)
+                     date-time)
+      ::price/commodity code
+      ::price/value price})
 
    :Quantity
    (fn ->quantity
@@ -236,44 +257,6 @@
                        {:form children}))))})
 
 
-(def commodity-transforms
-  {:CommodityCode
-   (fn ->commodity-code
-     [code]
-     (if (= "$" code) 'USD (symbol code)))
-
-   :CommodityDefinition
-   (fn ->commodity
-     [code & children]
-     (->
-       {:data/type :finance/commodity
-        :finance.commodity/code code}
-       (collect
-         {:title     (collect-one :NoteDirective)
-          :data/tags (collect-map :MetaDirective)
-          ::format   (collect-one :CommodityFormat)
-          ::options  (collect-all :CommodityOption)}
-         children)
-       (lift-meta :type :finance.commodity/type (partial keyword "finance.commodity.type"))
-       (lift-meta :class :finance.commodity/class (partial keyword "finance.commodity.class"))
-       (lift-meta :sector :finance.commodity/sector (partial keyword "finance.commodity.sector"))
-       (as-> commodity
-         (let [fmt (::format commodity)]
-           (if (and fmt (not (re-seq #"^\d" fmt)))
-             (assoc commodity :finance.commodity/currency-symbol (subs fmt 0 1))
-             commodity)))
-       ; These are unused at the moment.
-       (dissoc ::format ::options)))
-
-   :CommodityPrice
-   (fn ->commodity-price
-     [date code price]
-     {:data/type :finance/price
-      :time/at (date->time date)
-      :finance.price/commodity code
-      :finance.price/value price})})
-
-
 (def account-transforms
   {:AccountPathSegment (comp str/join list)
    :AccountPath vector
@@ -283,37 +266,41 @@
    (fn ->account-definition
      [path & children]
      (->
-       {:data/type :finance/account
-        :title (last path)
-        :finance.account/path path}
+       {::data/type :finance.data/account
+        ::account/title (last path)
+        ::account/path path}
        (collect
-         {:finance.account/alias (collect-one :AccountAliasDirective)
-          ::assertion            (collect-one :AccountAssertion)
-          :description           (collect-all :NoteDirective)
-          :data/tags             (collect-map :MetaDirective)}
+         {::account/alias (collect-one :AccountAliasDirective)
+          ::account/description (collect-all :NoteDirective)
+          ::data/tags (collect-map :MetaDirective)
+          ::assertion (collect-one :AccountAssertion)}
          children)
-       (join-field :description "\n")
-       (lift-meta :title)
-       (lift-meta :type :finance.account/type (partial keyword "finance.account.type"))
-       (lift-meta :external-id :finance.account/external-id)
-       (lift-meta :link :finance.account/links hash-set)
+       (join-field ::account/description "\n")
+       (lift-meta ::account/title)
+       (lift-meta :type ::account/type keyword)
+       (lift-meta :external-id ::account/external-id)
+       (lift-meta :link ::account/links set)
        (as-> account
          (if-let [commodities (some->>
                                 (::assertion account)
                                 (re-seq #"commodity == \"(\S+)\"")
                                 (map (comp (commodity-transforms :CommodityCode) second))
                                 (set))]
-           (assoc account :finance.account/commodities commodities)
+           (assoc account ::account/commodities commodities)
            account))
        (dissoc ::assertion)))})
 
 
 (def metadata-transforms
-  {:TagName keyword
+  {:TagName
+   keyword
+
    :MetaTag
    (fn ->meta
-     ([k]   [k true])
-     ([k v] [k v]))
+     ([k]
+      [k true])
+     ([k v]
+      [k v]))
 
    :SourceMeta
    (fn ->source-meta
@@ -325,24 +312,24 @@
   {:Transaction
    (fn ->transaction
      [date & children]
-     (-> {:data/type :finance/transaction
-          :finance.transaction/date date}
+     (-> {::data/type :finance.data/transaction
+          ::transaction/date date}
          (collect
-           {:title                       (collect-one :TxMemo)
-            :description                 (collect-all :MetaComment)
-            :time/at                     (collect-one :TimeMeta)
-            :finance.transaction/flag    (collect-one :TxFlag)
-            :finance.transaction/code    (collect-one :TxCode)
-            :finance.transaction/entries (collect-all :Posting)
-            :data/tags                   (collect-map :MetaEntry)}
+           {::transaction/title       (collect-one :TxMemo)
+            ::transaction/description (collect-all :MetaComment)
+            ::time                    (collect-one :TimeMeta)
+            ::transaction/flag        (collect-one :TxFlag)
+            ;::transaction/code        (collect-one :TxCode)
+            ::entries                 (collect-all :Posting)
+            ::data/tags               (collect-map :MetaEntry)}
            children)
-         (join-field :description "\n")
-         (update :finance.transaction/entries vec)
-         (update-time :time/at :finance.transaction/date)
-         (lift-meta :UUID :data/ident (partial str "finance:transaction:"))
-         (lift-meta :link :finance.transaction/links hash-set)
-         (distribute-attr :time/at :finance.transaction/entries)
-         (dissoc :time/at)))
+         (join-field ::transaction/description "\n")
+         (update ::entries vec)
+         (update-time ::time ::transaction/date)
+         (lift-meta :UUID ::data/ident (partial str "finance:transaction:"))
+         (lift-meta :link ::transaction/links hash-set)
+         (distribute-attr ::time ::entries)
+         (dissoc ::time)))
 
    :TxFlag
    (fn ->flag
@@ -361,56 +348,57 @@
                                [(first children) (rest children)])]
        [:Posting
         (->
-          {:data/type :finance.entry/posting
-           :finance.entry/account (second account)}
+          {::data/type :finance.data.entry/posting
+           ::entry/account (second account)}
           (assoc-some
-            :finance.posting/amount amount)
+            ::posting/amount amount)
           (collect
-            {:finance.entry/source-lines (collect-set :SourceMeta)
-             :finance.balance/amount     (collect-one :PostingBalance)
-             :finance.posting/price      (collect-one :PostingPrice)
-             :finance.posting/invoice    (collect-all :LineItem)
-             ::lot-cost                  (collect-one :PostingLotCost)
-             ::lot-date                  (collect-one :PostingLotDate)
-             ::date                      (collect-one :PostingDate)
-             :time/at                    (collect-one :TimeMeta)
-             :data/tags                  (collect-map :MetaEntry)
-             :description                (collect-all :MetaComment)}
+            {::entry/date         (collect-one :PostingDate)
+             ::entry/time         (collect-one :TimeMeta)
+             ::entry/description  (collect-all :MetaComment)
+             ::entry/source-lines (collect-set :SourceMeta)
+             ::posting/price      (collect-one :PostingPrice)
+             ::balance/amount     (collect-one :PostingBalance)
+             ::line-items         (collect-all :LineItem)
+             ::lot-cost           (collect-one :PostingLotCost)
+             ::lot-date           (collect-one :PostingLotDate)
+             ::data/tags          (collect-map :MetaEntry)}
             children)
-          ; TODO: (lift-meta :interval :time/interval ...)
-          ; Default :time/at to the start of :time/interval if missing
-          (update-time :time/at ::date)
-          (dissoc ::date)
-          (join-field :description "\n")
-          (lift-meta :type :data/type (partial keyword "finance.entry"))
-          (lift-meta :Payee :finance.posting/payee)
-          (lift-meta :external-id :finance.entry/external-id)
+          ;; TODO: (lift-meta :interval :time/interval ...)
+          ;; Default :time/at to the start of :time/interval if missing
+          (update-time ::entry/time ::date)
+          (join-field ::entry/description "\n")
+          (lift-meta :type ::data/type (partial keyword "finance.data.entry"))
+          (lift-meta :Payee ::posting/payee)
+          (lift-meta :external-id ::entry/external-id)
           (as-> posting
             (cond-> posting
               (::lot-cost posting)
-              (update :finance.posting/cost assoc :amount (::lot-cost posting))
+              (update ::posting/cost assoc :amount (::lot-cost posting))
+
               (::lot-date posting)
-              (update :finance.posting/cost assoc :date (::lot-date posting))
-              (seq (:finance.posting/invoice posting))
-              (assoc :finance.posting/invoice
-                     {:data/type :finance/invoice
-                      :finance.invoice/items (vec (:finance.posting/invoice posting))})
+              (update ::posting/cost assoc :date (::lot-date posting))
+
               (= posting-type :virtual)
-              (assoc :finance.posting/virtual true)
-              ; Automatically detect balance-check entries.
+              (assoc ::posting/virtual? true)
+
+              ;; Automatically detect balance-check entries.
               (and (or (nil? (:value amount))
                        (zero? (:value amount)))
                    (= :balanced-virtual posting-type)
                    (:finance.balance/amount posting))
               (-> (assoc :data/type :finance.entry/balance-check)
                   (dissoc :finance.posting/amount))
-              ; If type is overridden and amount is zero, remove it.
-              (and (not= :finance.entry/posting (:data/type posting))
+
+              ;; If type is overridden and amount is zero, remove it.
+              (and (not= ::entry/posting (::data/type posting))
                    (or (nil? (:value amount)) (zero? (:value amount))))
-              (dissoc :finance.posting/amount)))
+              (dissoc ::posting/amount)))
           (dissoc ::lot-cost ::lot-date))]))
 
-   :LineItemTaxGroup keyword
+   :LineItemTaxGroup
+   keyword
+
    :LineItemTaxGroups
    (fn ->tax-groups
      [& groups]
@@ -421,13 +409,13 @@
      [desc & children]
      [:LineItem
       (collect
-        {:title desc
-         :data/type :finance/item}
-        {:finance.item/total       (collect-one :LineItemTotal)
-         :finance.item/amount      (collect-one :LineItemAmount)
-         :finance.item/price       (collect-one :LineItemPrice)
-         :finance.item/tax-groups  (collect-one :LineItemTaxGroups)
-         :finance.item/tax-applied (collect-one :LineItemTaxApplied)}
+        {::data/type :finance.data/item
+         ::item/title desc}
+        {::item/total       (collect-one :LineItemTotal)
+         ::item/amount      (collect-one :LineItemAmount)
+         ::item/price       (collect-one :LineItemPrice)
+         ::item/tax-groups  (collect-one :LineItemTaxGroups)
+         ::item/tax-applied (collect-one :LineItemTaxApplied)}
         children)])})
 
 

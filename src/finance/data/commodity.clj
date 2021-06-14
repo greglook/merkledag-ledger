@@ -98,31 +98,38 @@
     :utilities})
 
 
-(defn- distribution-map
+(defn- distribution-map-spec
+  "Creates a spec for a map of keys whose values sum to one."
+  [key-spec]
+  (s/with-gen
+    (s/and (s/map-of key-spec
+                     (s/double-in :min 0.0
+                                  :max 1.0
+                                  :infinite? false
+                                  :NaN? false))
+           #(== 1 (reduce + (vals %))))
+    #(gen/fmap
+       (fn [m]
+         (if (= 1 (count m))
+           (key (first m))
+           (let [total (reduce + (vals m))]
+             (into {} (map (fn [[k v]] [k (/ v total)]) m)))))
+       (gen/map (s/gen key-spec)
+                (gen/double*
+                  {:min 0.0
+                   :infinite? false
+                   :NaN? false})
+                {:min-elements 1
+                 :max-elements 10}))))
+
+
+(defn- distribution-spec
   "Creates a spec for a key type which can either be a single keyword or a map
   of keys whose values sum to one."
   [key-spec]
   (s/or
     :single key-spec
-    :multi (s/with-gen
-             (s/and (s/map-of key-spec
-                              (s/double-in :min 0.0
-                                           :max 1.0
-                                           :infinite? false
-                                           :NaN? false))
-                    #(== 1 (reduce + (vals %))))
-             #(gen/fmap
-                (fn [m]
-                  (if (= 1 (count m))
-                    (key (first m))
-                    (let [total (reduce + (vals m))]
-                      (into {} (map (fn [[k v]] [k (/ v total)]) m)))))
-                (gen/map (s/gen key-spec)
-                         (s/double-in :min 0.0
-                                      :infinite? false
-                                      :NaN? false)
-                         {:min-elements 1
-                          :max-elements 10})))))
+    :multi (distribution-map-spec key-spec)))
 
 
 
@@ -160,7 +167,7 @@
   string?)
 
 
-(defattr ::symbol
+(defattr ::currency-symbol
   "One-character string to prefix currency amounts with."
   (s/with-gen
     (s/and string? #(= 1 (count %)))
@@ -177,12 +184,12 @@
 
 (defattr ::asset-class
   "Map of asset class breakdowns or single class keyword."
-  (distribution-map asset-classes))
+  (distribution-spec asset-classes))
 
 
 (defattr ::asset-sector
   "Map of asset sector breakdowns or single sector keyword."
-  (distribution-map asset-sectors))
+  (distribution-spec asset-sectors))
 
 
 (defentity :finance.data/commodity

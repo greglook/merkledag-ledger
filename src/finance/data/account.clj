@@ -33,7 +33,7 @@
 
 
 (defattr ::id
-  "Link to the account's root node."
+  "Unique (stable) identifier for the account."
   ::data/some-string
   :db/unique :db.unique/identity)
 
@@ -77,14 +77,14 @@
 (defattr ::commodities
   "Set of commodities which are valid for the account to contain."
   (s/coll-of ::commodity/code :kind set?)
-  :db/cardinality :db.cardinality/many)
+  #_#_:db/cardinality :db.cardinality/many)
 
 
 (defattr ::links
   "String identifiers linking related accounts together."
-  ::data/some-string
-  :db/cardinality :db.cardinality/many
-  :db/index true)
+  (s/coll-of ::data/some-string :kind set?)
+  #_#_:db/cardinality :db.cardinality/many
+  #_#_:db/index true)
 
 
 (defentity :finance.data/account

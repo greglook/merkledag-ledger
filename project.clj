@@ -12,7 +12,8 @@
   :dependencies
   [[org.clojure/clojure "1.10.2"]
    [datascript "1.0.4"]
-   [instaparse "1.4.10"]]
+   [instaparse "1.4.10"]
+   [tick "0.4.31-alpha"]]
 
   :hiera
   {:vertical false
@@ -21,7 +22,7 @@
    :show-external false}
 
   :whidbey
-  {:tag-types {'finance.types.Quantity {'finance/q (juxt :value :commodity)}}}
+  {:tag-types {'finance.data.quantity.Quantity {'finance/q (juxt :value :commodity)}}}
 
   :profiles
   {:dev

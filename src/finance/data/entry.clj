@@ -3,20 +3,12 @@
   (:require
     [clojure.spec.alpha :as s]
     [finance.data.account :as account]
-    [finance.data.core :as data :refer [defattr defentity]]
-    [finance.data.time :as time]))
+    [finance.data.core :as data :refer [defattr defentity defref]]
+    [finance.data.time :as time]
+    [finance.data.transaction :as transaction]))
 
 
 ;; ## General Attributes
-
-#_
-(defattr ::account
-  "Name of the account the entry is related to."
-  ;; TODO: is this flexibility desirable outside a textual form?
-  (s/or :path ::account/path
-        :alias ::account/alias)
-  :db/valueType :db.type/ref)
-
 
 (defattr ::date
   "Calendar date the entry occurred at. Used to order entries inside the
@@ -55,6 +47,19 @@
 
 
 
+;; ## References
+
+(defref ::account
+  "Account the entry belongs to."
+  ::account/id)
+
+
+(defref ::transaction
+  "Transaction the entry is part of."
+  ::transaction/id)
+
+
+
 ;; ## Entry Entities
 
 (defmulti journal-entry ::data/type)
@@ -70,8 +75,7 @@
   `:finance.data.entry/posting`. Adds common entry fields automatically."
   [type-name doc-str & {:as spec-keys}]
   (let [type-key (keyword "finance.data.entry" (name type-name))
-        auto-req [::account/id
-                  ::date]
+        auto-req [::date]
         auto-opt [::time
                   ::rank
                   ::description

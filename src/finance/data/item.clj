@@ -1,8 +1,20 @@
 (ns finance.data.item
   (:require
     [clojure.spec.alpha :as s]
-    [finance.data.core :refer [defattr defentity]]
+    [finance.data.core :refer [defattr defentity defref]]
+    [finance.data.entry :as entry]
+    [finance.data.invoice :as invoice]
     [finance.data.quantity :as quantity]))
+
+
+(defref ::invoice
+  "Invoice the item is part of."
+  ::invoice/id)
+
+
+(defref ::entry
+  "Transaction entry the item contributes to."
+  ::entry/id)
 
 
 (defattr ::title

@@ -27,7 +27,8 @@
     [finance.format.ledger.parse :as ledger.parse]
     [finance.repl.db :as db]
     [instaparse.core :as insta]
-    [puget.printer :as puget]))
+    [puget.printer :as puget]
+    [tick.alpha.api :as t]))
 
 
 (defn cprint
@@ -38,8 +39,7 @@
     {:width 120
      :print-color true
      :print-handlers
-     {;java.util.UUID (puget/tagged-handler 'uuid str)
-      ;finance.core.types.Quantity (puget/tagged-handler 'finance/$ (juxt :value :commodity))
+     {finance.data.quantity.Quantity (puget/tagged-handler 'finance/q (juxt :value :commodity))
       ,,,}}))
 
 
@@ -95,23 +95,31 @@
   :reloaded)
 
 
-#_
+(defn read-groups
+  "Read the given file into groups of lines which are separated by blanks.
+  Returns a lazy sequence of group strings."
+  [file]
+  (->> file
+       (io/file)
+       (io/reader)
+       (line-seq)
+       (ledger.parse/group-lines)))
+
+
 (defn find-groups
   "Searches through the groups in a file to find ones which match the given
   pattern. Returns a sequence of indices for the matching groups."
   [file pattern]
-  (->> file io/file io/reader line-seq ledger.parse/group-lines
-       (keep-indexed #(when (re-seq pattern %2) %1))))
+  (keep-indexed #(when (re-seq pattern %2) %1)
+                (read-groups file)))
 
 
-#_
 (defn get-group
   "Reads a line group out of a file by index."
   [file index]
-  (-> file io/file io/reader line-seq ledger.parse/group-lines (nth index)))
+  (nth index (read-groups file)))
 
 
-#_
 (defn debug-parse
   "Attempts to parse the given text using the current parser. Returns the
   interpreted data structure if the text parsed successfully, or nil on error.
@@ -129,7 +137,8 @@
          ;; On failure, print out input and error message
          (insta/failure? parses)
          (do (printf "\nParsing entry %d failed:\n\n" index)
-             (when-not show? (println text ""))
+             (when-not show?
+               (println text ""))
              (cprint (insta/get-failure parses))
              nil)
 
@@ -137,7 +146,8 @@
          (< 1 (count parses))
          (do (printf "\nParsing entry %d is ambiguous (%d parses):\n\n"
                      index (count parses))
-             (when-not show? (println text ""))
+             (when-not show?
+               (println text ""))
              (cprint (take 2 parses))
              (println "\nDifferences:")
              (cprint (diff (first parses) (second parses)))
@@ -156,26 +166,30 @@
                (println)
                (println "Interpreted:")
                (cprint interpreted)
-               (when-let [errors (s/explain (:data/type entry) entry)]
+               (when-let [errors (and (::data/type entry)
+                                      (s/explain (::data/type entry) entry))]
                  (println)
                  (println "Validation errors:")
                  (cprint errors)))
              interpreted))))
      (catch Exception e
        (printf "\nParsing entry %d failed:\n\n" index)
-       (when-not show? (println text ""))
+       (when-not show?
+         (println text ""))
        (print-cause-trace e)
        nil))))
 
 
-#_
 (defn test-parser
   "Tests the parser by running it against the line groups in the given file.
   Any extra arguments will explicitly print out the results of parsing the
   groups at those indices."
   [file & show-entries]
-  (let [groups (-> file io/file io/reader line-seq ledger.parse/group-lines)
-        show-entries (set show-entries)
+  (let [groups (read-groups file)
+        show-entry? (if (and (= 1 (count show-entries))
+                             (= :all (first show-entries)))
+                      (constantly true)
+                      (set show-entries))
         error-limit 5
         elapsed (stopwatch)]
     (loop [entries groups
@@ -191,8 +205,12 @@
 
         ;; Parse next entry
         (seq entries)
-        (let [success? (debug-parse (first entries) index (show-entries index))]
-          (recur (rest entries) (inc index) (if success? errors (inc errors))))
+        (let [success? (debug-parse (first entries) index (show-entry? index))]
+          (recur (rest entries)
+                 (inc index)
+                 (if success?
+                   errors
+                   (inc errors))))
 
         ;; Parsed everything without hitting error limit
         :else
@@ -204,16 +222,16 @@
 
 ;; ## Data Integration
 
-#_
 (defn inspect-file
   "Inspects the parsing of a group in the given file. If no index is given, one
   is selected at random."
   ([file]
    (inspect-file file nil))
   ([file index & {:keys [book db], :or {book "repl", db @db/conn}}]
-   (let [groups (-> file io/file io/reader line-seq ledger.parse/group-lines)
+   (let [groups (read-groups file)
          index (or index (rand-int (count groups)))
          entries (debug-parse (nth groups index) index true)]
+     #_
      (try
        (let [tx-updates (load/with-context book
                                            (->> entries
@@ -221,7 +239,8 @@
                                                 (doall)))]
          (println)
          (println "Transaction updates:")
-         (doseq [tx tx-updates] (cprint tx)))
+         (doseq [tx tx-updates]
+           (cprint tx)))
        (catch Exception e
          (println)
          (println "Error constructing transaction updates:")

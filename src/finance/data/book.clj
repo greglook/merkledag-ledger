@@ -7,7 +7,8 @@
 
 (defattr ::id
   "Unique short slug identifying the book."
-  ::data/some-string)
+  ::data/some-string
+  :db/unique :db.unique/identity)
 
 
 (defattr ::title

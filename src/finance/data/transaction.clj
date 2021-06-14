@@ -3,29 +3,31 @@
     [clojure.spec.alpha :as s]
     [datascript.core :as ds]
     [finance.data.book :as book]
-    [finance.data.entry :as entry]
-    [finance.data.core :refer [defattr defentity]]
+    [finance.data.core :as data :refer [defattr defentity defref]]
     [finance.data.time :as time]))
 
 
 ;; ## Data Specs
+
+(defattr ::id
+  "Unique identifier for the transaction."
+  ::data/some-string
+  :db/unique :db.unique/identity)
+
 
 (defattr ::date
   "Local calendar date on which the transaction occurred."
   ::time/local-date)
 
 
-;; TODO: non-virtual postings must sum to zero
-(defattr ::entries
-  "References to child journal entries."
-  (s/coll-of :finance.data/entry :kind vector? :min-count 1)
-  :db/cardinality :db.cardinality/many)
+(defattr ::title
+  "Title to display for the transaction."
+  ::data/some-string)
 
 
-(defattr ::links
-  "String identifiers linking transactions together."
-  (s/coll-of string? :kind set?)
-  :db/index true)
+(defattr ::description
+  "Longer descriptive comment about the transaction."
+  ::data/some-string)
 
 
 (defattr ::flag
@@ -33,16 +35,29 @@
   #{:pending :cleared})
 
 
+(defattr ::links
+  "String identifiers linking transactions together."
+  ;; TODO: not a collection?
+  (s/coll-of string? :kind set?)
+  :db/index true)
+
+
 (defentity :finance.data/transaction
   "..."
-  :req [::book/id
+  :req [::id
         ::date
-        ::title
-        ::entries]
-  :opt [::time
-        ::description
-        ::links
-        ::flag])
+        ::title]
+  :opt [::description
+        ::flag
+        ::links])
+
+
+
+;; ## References
+
+(defref ::book
+  "Book this transaction belongs to."
+  ::book/id)
 
 
 
@@ -68,11 +83,11 @@
       ; minimally, filtering on date should work
       (ds/q '{:find [?tx ?date (min ?time)]
               :in [$ ?book]
-              :where [[?a :finance.account/book ?book]
-                      [?e :finance.entry/account ?a]
-                      [?e :time/at ?time]
-                      [?tx :finance.transaction/entries ?e]
-                      [?tx :finance.transaction/date ?date]]}
+              :where [[?a :finance.data.account/book ?book]
+                      [?e :finance.data.entry/account ?a]
+                      [?e :finance.data.entry/time ?time]
+                      [?e :finance.data.entry/transaction ?tx]
+                      [?tx :finance.data.transaction/date ?date]]}
            db book)
       (sort-by (comp vec rest))
       (map (comp (partial d/entity db) first)))))

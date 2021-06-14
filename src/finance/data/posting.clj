@@ -5,7 +5,6 @@
     [finance.data.balance :as balance]
     [finance.data.core :as data :refer [defattr]]
     [finance.data.entry :as entry :refer [defentry]]
-    [finance.data.invoice :as invoice]
     [finance.data.quantity :as quantity]))
 
 
@@ -47,12 +46,6 @@
   :db/valueType :db.type/ref)
 
 
-(defattr ::invoice
-  "Reference to an invoice the posting is related to."
-  ::invoice/id
-  :db/valueType :db.type/ref)
-
-
 (defentry :posting
   "Postings modify commodity amounts in accounts."
   :req [::id
@@ -62,5 +55,4 @@
         ::cost
         ::virtual?
         ::payee
-        ::invoice
         ::balance/amount])

@@ -3,8 +3,8 @@
   such as a description, quantity, cost, etc."
   (:require
     [clojure.spec.alpha :as s]
-    [finance.data.core :as data :refer [defattr defentity]]
-    [finance.data.item :as item]))
+    [finance.data.book :as book]
+    [finance.data.core :as data :refer [defattr defentity defref]]))
 
 
 (defattr ::id
@@ -25,6 +25,5 @@
 
 
 (defentity :finance.data/invoice
-  "An invoice of items for a transaction entry."
-  :req [::id
-        ::items])
+  "An invoice of items."
+  :req [::id])
