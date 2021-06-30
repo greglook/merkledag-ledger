@@ -59,7 +59,6 @@
   (print-method (tagged-literal quantity-tag (quantity->form quantity)) writer))
 
 
-
 ;; ## Data Specs
 
 (s/def ::value number?)

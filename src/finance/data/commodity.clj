@@ -1,9 +1,11 @@
 (ns finance.data.commodity
+  "A commodity defines a type of value storage and exchange."
   (:require
     [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [clojure.string :as str]
+    [finance.data.book :as book]
     [finance.data.core :as data :refer [defattr defentity]]))
 
 
@@ -132,8 +134,12 @@
     :multi (distribution-map-spec key-spec)))
 
 
+;; ## Data Attributes
 
-;; ## Commodity Attributes
+(defref ::book
+  "The book this commodity is local to, if applicable."
+  ::book/id)
+
 
 (defattr ::code
   "Code symbol used to identify the commodity."
@@ -178,8 +184,8 @@
 ;; TODO: rename 'scale'?
 ;; TODO: this should also not prevent higher-precision values from appearing e.g. as commodity prices
 (defattr ::precision
-  "Number of decimal places to represent the commodity to."
-  integer?)
+  "Default number of decimal places to represent the commodity to."
+  nat-int?)
 
 
 (defattr ::asset-class
@@ -192,13 +198,34 @@
   (distribution-spec asset-sectors))
 
 
+;; ## Normal Form
+
 (defentity :finance.data/commodity
-  "A commodity defines a type of value storage and exchange."
   :req [::code
-        ::name
-        ::type]
-  :opt [::description
-        ::symbol
+        ::name]
+  :opt [::book/id
+        ::type
+        ::description
+        ::currency-symbol
         ::precision
         ::asset-class
         ::asset-sector])
+
+
+;; ## Tree Form
+
+(defmethod data/tree-form :finance.data/commodity
+  [_]
+  (s/keys :req [::code
+                ::name]
+          :opt [::type
+                ::description
+                ::currency-symbol
+                ::precision
+                ::asset-class
+                ::asset-sector]))
+
+
+(defmethod data/normalize-tree :finance.data/commodity
+  [ctx commodity]
+  [commodity])

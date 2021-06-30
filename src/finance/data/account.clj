@@ -5,10 +5,8 @@
     [datascript.core :as ds]
     [finance.data.book :as book]
     [finance.data.commodity :as commodity]
-    [finance.data.core :as data :refer [defattr defentity]]))
+    [finance.data.core :as data :refer [defattr defident defref defentity]]))
 
-
-;; ## Data Specs
 
 (def account-types
   "Set of names for some common account types."
@@ -32,10 +30,16 @@
     :property})
 
 
-(defattr ::id
+;; ## Data Attributes
+
+(defref ::book
+  "Book the account belongs to."
+  ::book/id)
+
+
+(defident ::id
   "Unique (stable) identifier for the account."
-  ::data/some-string
-  :db/unique :db.unique/identity)
+  "act")
 
 
 (defattr ::path
@@ -77,18 +81,19 @@
 (defattr ::commodities
   "Set of commodities which are valid for the account to contain."
   (s/coll-of ::commodity/code :kind set?)
-  #_#_:db/cardinality :db.cardinality/many)
+  :db/cardinality :db.cardinality/many)
 
 
 (defattr ::links
   "String identifiers linking related accounts together."
   (s/coll-of ::data/some-string :kind set?)
-  #_#_:db/cardinality :db.cardinality/many
-  #_#_:db/index true)
+  :db/cardinality :db.cardinality/many
+  :db/index true)
 
+
+;; ## Normal Form
 
 (defentity :finance.data/account
-  "..."
   :req [::book/id
         ::id
         ::path]
@@ -100,6 +105,27 @@
         ::commodities
         ::links])
 
+
+;; ## Tree Form
+
+(defmethod data/tree-form :finance.data/account
+  [_]
+  (s/keys :req [::path]
+          :opt [::id
+                ::title
+                ::description
+                ::alias
+                ::type
+                ::external-id
+                ::commodities
+                ::links]))
+
+
+(defmethod data/normalize-tree :finance.data/account
+  [ctx account]
+  [(assoc account
+          ::book/id (::book/id ctx)
+          ::id (or (::id account) (gen-id)))])
 
 
 ;; ## Functions
@@ -115,7 +141,18 @@
 ; - there must be AT MOST one close-account entry
 ; - account should only ever contain allowed commodities (move to posting?)
 
+(defn find-account
+  "Find an account entity in the provided collection identified by a keyword
+  alias or a path vector. Returns the first matching account, or nil if no such
+  account exists."
+  [accounts account-ref]
+  (let [attr-key (if (keyword? account-ref)
+                   ::alias
+                   ::path)]
+    (first (filter #(= account-ref (get % attr-key)) accounts))))
 
+
+#_
 (defn find-account
   "Returns the entity for an account identified by a keyword alias or a path
   vector in the given set of books."

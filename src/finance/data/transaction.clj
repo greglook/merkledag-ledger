@@ -7,12 +7,16 @@
     [finance.data.time :as time]))
 
 
-;; ## Data Specs
+;; ## Data Attributes
 
-(defattr ::id
+(defref ::book
+  "Book the transaction belongs to."
+  ::book/id)
+
+
+(defident ::id
   "Unique identifier for the transaction."
-  ::data/some-string
-  :db/unique :db.unique/identity)
+  "txn")
 
 
 (defattr ::date
@@ -42,9 +46,11 @@
   :db/index true)
 
 
+;; ## Normal Form
+
 (defentity :finance.data/transaction
-  "..."
-  :req [::id
+  :req [::book/id
+        ::id
         ::date
         ::title]
   :opt [::description
@@ -52,13 +58,40 @@
         ::links])
 
 
+;; ## Tree Form
 
-;; ## References
+(s/def ::entries
+  (s/coll-of (data/tree-spec :finance.data/entry)
+             :kind vector?))
 
-(defref ::book
-  "Book this transaction belongs to."
-  ::book/id)
 
+(defmethod data/tree-form :finance.data/transaction
+  [_]
+  (s/keys :req [::date
+                ::title
+                ::entries]
+          :opt [::id
+                ::description
+                ::flag
+                ::links]))
+
+
+(defmethod data/normalize-tree :finance.data/transaction
+  [ctx txn]
+  (let [entries (map-indexed
+                  (fn [i entry]
+                    (assoc entry :finance.data.entry/txn-rank i))
+                  (::entries txn))
+        txn (-> txn
+                (dissoc ::entries)
+                (assoc ::book/id (::book/id ctx)
+                       ::id (or (::id txn) (gen-id))))
+        ctx (assoc ctx :transaction txn)]
+    (cons
+      txn
+      (mapcat
+        (partial data/normalize-tree ctx)
+        entries))))
 
 
 ;; ## Functions
