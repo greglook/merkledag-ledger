@@ -5,14 +5,61 @@ This document discusses the various ways in which a dataset can be represented,
 both in memory and as a file "on disk" somewhere.
 
 **TODO:** how can the data reference document files? maybe a generic URI and
-let the hosting system handle it?
+let the hosting system handle it? "attachments"?
 
 
 ## Representations
 
-What representations of the dataset are there?
+What in-memory representations of the dataset are there?
 
-### Entity Collection
+### Normal Form
+
+The "normal" form of the dataset uses nested data structures to represent
+everything. Relationships are expressed by being directly linked by references.
+
+```
+store
+├── commodities                         Shared global commodities
+│   ├── {USD}                           Individual commodity definitions
+│   ├── {TSLA}
+│   └── ...
+├── prices                              Shared global price data
+│    ├── {VFIFX}                        Sequence of price data for this commodity
+│    └── ...
+└── books
+    ├── {user}                          Each named book
+    │   ├── commodities                 Book-local commodities
+    │   │   └── ...
+    │   ├── prices                      Book-local price history
+    │   │   └── ...
+    │   ├── accounts                    List of account entities
+    │   │   ├── {Assets...}
+    │   │   ├── {Liabilities...}
+    │   │   ├── {Income...}
+    │   │   ├── {Expenses:...}
+    │   │   └── ...
+    │   ├── journal                     List of transactions, in time order
+    │   │   ├── {tx-01}                 Transaction data, containing list of entries
+    │   │   │   ├── {posting-01}        Transaction entry data
+    │   │   │   ├── {posting-02}
+    │   │   │   └── ...
+    │   │   ├── {tx-02}
+    │   │   │   └── ...
+    │   │   └── ...
+    │   ├── invoices                    List of invoices, in time order
+    │   │   ├── {invoice-01}            Invoice data, containing list of items
+    │   │   │   ├── {item-01}           Line-item entity
+    │   │   │   ├── {item-02}
+    │   │   │   └── ...
+    │   │   └── ...
+    │   └── budgets                     Budget entity data
+    │       └── ???
+    ├── {joint}
+    │   └── ...
+    └── ...
+```
+
+### Entity Collections
 
 One simple representation of the full dataset is conceptually a flat collection
 of entity data. In memory, this would be a sequence of maps with attribute keys
@@ -23,23 +70,35 @@ and filtering out data we didn't need. That would obviously be inefficient, but
 the goal of this representation is its simplicity.
 
 There is intentionally no structure provided in this collection to emphasize
-that each entity must contain all of the data necessary to represent it,
-including some kind of type keyword. While there is no required ordering of the
-entities, the _preferred_ ordering should be:
+that each entity must contain all of the data necessary to represent it. While
+there is no required ordering of the entities, the _preferred_ ordering should
+be:
+
 - the book entity
 - commodities
 - price history
-- accounts, ordered depth first
+- accounts, in a depth-first traversal
+- invoices, in time order
+    - items following each invoice
 - the transaction journal, in time order:
     - the transaction
-    - any invoices
     - entries such as postings, balance checks, etc
+
+Implications of this model:
+- Each entity needs some kind of common "type" attribute to distinguish it.
+- Links between entities must be represented by some kind of unique key and
+  "reference" attributes.
 
 ### Datascript DB
 
 Another representation we want in order to efficiently answer queries is a
 Datascript database. This is also an in-memory representation and contains
 several index structures with entity/attribute/value tuples.
+
+
+## File Formats
+
+How can the same dataset be persisted for longer-term storage?
 
 ### Entity File Tree
 
@@ -57,7 +116,7 @@ format which combines all of the data into one or more packed files. The
 primary goal is efficient conversion to and from the in-memory representations.
 The format should support efficient random reads and incremental writes.
 
-Is there a way to use sqlite for this?
+Is there a way to use `sqlite` for this?
 
 ### Text Ledger
 

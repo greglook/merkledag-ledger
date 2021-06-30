@@ -53,8 +53,10 @@ in the library.
 Books contain:
 - local commodities
 - local price history
-- accounts
-- transaction journal
+- set of accounts
+- journal of transactions
+- list of invoices
+- budget history
 
 
 ## Accounts
@@ -71,10 +73,10 @@ variety of commodities.
 
 ## Register Entries
 
-An entry is an event which happens to a financial account. An account
-conceptually has a _register_ of all such events, listed in the order they
-occur. Each entry occurs at a certain point in time, may have a description,
-reference the data source it was pulled from, etc.
+An entry is an event which happens to a financial account. An account has a
+_register_ of all such events, listed in the order they occur. Each entry
+occurs at a certain point in time, may have a description, reference the data
+source it was pulled from, etc.
 
 ### Metadata Entries
 
@@ -89,7 +91,7 @@ beginning or a `close-account` entry must be an `open-account` entry.
 
 The `close-account` entry marks the account as inactive and it should not be
 used in postings. There should not be any non-note entries in an account's
-register until after an `open-account` entry.
+register until after another `open-account` entry.
 
 ### Balance Checks
 
@@ -101,6 +103,8 @@ Each check entry specifies a specific quantity of a commodity; if the account
 contains the same amount of that commodity, the check passes. If not, the check
 is in error; this likely indicates missing or incorrect data somewhere.
 
+**TODO:** are these evaluated in _transaction order_ or _register order_?
+
 ### Postings
 
 A posting is an entry which _changes_ the amount of some commodity in the
@@ -108,26 +112,95 @@ account. Postings generically cover the traditional "credits" and "debits" in
 accounting with a single signed quantity.
 
 
-## Items & Invoices
-
-- invoices usually map to something like a receipt for a purchase
-- separate top-level entity from transactions
-    - what implications does this have on how they are rendered textually?
-- items may belong-to an entry
-
-...
-
-
 ## Transactions
 
-...
+The primary historical entity in the data model is the _transaction_, which
+contains one or more entries. Transactions occur on a date (but not specific
+times!) and may be ordered relative to each other within that day. They
+typically contain information like the title, a description, and other metadata
+tags that help organize them.
+
+The entries in a transaction may (and usually do) affect multiple accounts, and
+critically **must balance** to preserve the double-entry accounting invariant.
+This means that the sum of the weight of all entries must equal zero.
+
+### Journal
+
+The journal is the historical list of transactions in the book.
 
 
-## Journal
+## Invoices
 
-...
+An invoice is a document which gives a per-item breakdown of some exchange,
+usually of a currency for a set of goods. Some typical examples of invoices
+are:
+- a receipt you get at the store after buying some items
+- a quote for some work done on a project
+- a confirmation email after placing an online order
+
+Invoices are separate top-level entities from transactions; typically an
+invoice will correspond to one or more postings against some accounts, but it's
+not necessarily 1:1.
+
+### Line Items
+
+Invoices contain _line items_, which are individual charges that roll up to the
+total amount in the invoice. Items have their own fields for units, unit cost,
+line amount, etc. Each item may link to a posting that it contributes its
+amount to.
+
+For example, a receipt from a grocery store might have several items that
+contribute to a single posting to `Expenses:Food:Groceries`, while other items
+are part of `Expenses:Entertainment:Alcohol`, `Expenses:Home:Supplies`, etc.
 
 
 ## Budgets
 
-...
+Budgets represent pools of money for projecting and managing flows of money
+through the accounts in a book. Each budget represents a pool of money the
+book has which is allocated for a specific purpose; examples might be "Food",
+"Emergencies", "Utilities", etc. Each budget has a name, a target daily rate,
+and a maximum amount. Budgets are organized into a priority list, with earlier
+budgets being considered "more important".
+
+By default, there is an "unbudgeted" pool that contains all of the value that
+has not been allocated to a specific budget. This pool is also drawn from when
+expenses are not applied against a specific budget.
+
+### Budgeted Accounts
+
+In addition to defining the budget pools themselves, the user must also declare
+which accounts participate in budgeting. Individual dollars or budgets are not
+assigned to specific accounts, but conceptually the total budget pool balance
+should equal the balance of all the budgeted accounts.
+
+Whenever a transaction changes the balance of a budgeted account, the other
+postings against non-budgeted accounts in the transaction represent "flows" to
+or from the budgets. A positive amount on a flow posting represents a budget
+outflow like an expense, and should be tagged with the budget it is spending
+against. A negative amount represents a budget inflow like income, and is put
+into the unbudgeted pool by default.
+
+Commonly, accounts like checking, savings, and credit cards will be budgeted.
+For something longer term and more nebulous like investment accounts, it
+probably makes more sense to have an "investments" budget but _not_ tag the
+investment account itself. Then the budget represents how much money can be
+transferred to be invested; the positive change to the investment account is an
+outflow towards the budget goal.
+
+### Budget Allocation
+
+At the start of each day, the following allocation algorithm is run. For each
+budget, in order of the user's priority list:
+
+1. Compare the budget's current balance to the maximum. If the limit has been
+   reached, move to the next budget.
+2. Take the minimum of the target daily rate, the distance to the balance cap,
+   and the available unallocated pool. Allocate this to the current budget.
+3. Reduce the unallocated pool by the amount from the previous step. If any
+   value is left, move to the next budget.
+4. If there are no more budgets, leave the remaining amount in the unallocated
+   pool.
+
+At any time the user may manually reallocate value between the budgets and
+unallocated pool.
