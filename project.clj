@@ -11,6 +11,7 @@
 
   :dependencies
   [[org.clojure/clojure "1.10.2"]
+   [mvxcvi/alphabase "2.1.0"]
    [datascript "1.0.4"]
    [instaparse "1.4.10"]
    [tick "0.4.31-alpha"]]
