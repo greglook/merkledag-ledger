@@ -222,6 +222,19 @@
 
 ;; ## Data Integration
 
+;; TODO: how would I load and regularize a whole dataset?
+;; - load commodity definitions
+;; - load price history
+;; - load all accounts, generate unique ids as needed
+;; - load transaction history, generate unique ids
+;;   - pull out entries
+;;     - give each entry a unique id
+;;     - link to tx ids
+;;     - rewrite account reference to account id
+;;   - pull out items, link to posting ids
+;;   - group items into invoices?
+
+
 (defn inspect-file
   "Inspects the parsing of a group in the given file. If no index is given, one
   is selected at random."

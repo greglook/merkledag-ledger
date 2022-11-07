@@ -74,7 +74,7 @@ TimeMetaTag = 'time: ' ;
 TimeMeta = <TimeMetaTag> , ( Time | DateTime ) ;
 
 SourceMetaTag = 'source: ' ;
-SourceMeta = <SourceMetaTag> , TagName , <'|'> , Text ;
+SourceMeta = <SourceMetaTag> , Text ;
 
 LineItemTag = 'item: ' ;
 

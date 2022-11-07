@@ -46,6 +46,11 @@
   :db/valueType :db.type/ref)
 
 
+(defattr ::transfer
+  "Linking identifier for a transfer posting in another book."
+  string?)
+
+
 (defentry :posting
   "Postings modify commodity amounts in accounts."
   :req [::id

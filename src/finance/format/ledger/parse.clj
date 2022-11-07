@@ -233,6 +233,7 @@
    (fn ->commodity-price
      [date-time code price]
      {::data/type :finance.data/price
+      ;; FIXME: this makes local times, but spec is inst
       ::price/time (if (t/date? date-time)
                      (t/midnight date-time)
                      date-time)
@@ -276,10 +277,10 @@
           ::assertion (collect-one :AccountAssertion)}
          children)
        (join-field ::account/description "\n")
-       (lift-meta ::account/title)
+       (lift-meta :title ::account/title)
        (lift-meta :type ::account/type keyword)
        (lift-meta :external-id ::account/external-id)
-       (lift-meta :link ::account/links set)
+       (lift-meta :link ::account/links hash-set)
        (as-> account
          (if-let [commodities (some->>
                                 (::assertion account)
@@ -304,8 +305,8 @@
 
    :SourceMeta
    (fn ->source-meta
-     [src line]
-     [:SourceMeta [src line]])})
+     [line]
+     [:SourceMeta line])})
 
 
 (def transaction-transforms
@@ -320,21 +321,24 @@
             ::time                    (collect-one :TimeMeta)
             ::transaction/flag        (collect-one :TxFlag)
             ;::transaction/code        (collect-one :TxCode)
-            ::entries                 (collect-all :Posting)
+            ::transaction/entries     (collect-all :Posting)
             ::data/tags               (collect-map :MetaEntry)}
            children)
          (join-field ::transaction/description "\n")
-         (update ::entries vec)
+         (update ::transaction/entries vec)
          (update-time ::time ::transaction/date)
-         (lift-meta :UUID ::data/ident (partial str "finance:transaction:"))
+         (lift-meta :UUID ::transaction/id (partial str "tx-"))
          (lift-meta :link ::transaction/links hash-set)
-         (distribute-attr ::time ::entries)
+         (distribute-attr ::time ::transaction/entries)
          (dissoc ::time)))
 
    :TxFlag
    (fn ->flag
      [chr]
-     [:TxFlag (case chr "!" :pending, "*" :cleared, :uncleared)])
+     [:TxFlag (case chr
+                "!" :pending
+                "*" :cleared
+                :uncleared)])
 
    :Posting
    (fn ->posting
@@ -359,7 +363,7 @@
              ::entry/source-lines (collect-set :SourceMeta)
              ::posting/price      (collect-one :PostingPrice)
              ::balance/amount     (collect-one :PostingBalance)
-             ::line-items         (collect-all :LineItem)
+             ::entry/items        (collect-all :LineItem)
              ::lot-cost           (collect-one :PostingLotCost)
              ::lot-date           (collect-one :PostingLotDate)
              ::data/tags          (collect-map :MetaEntry)}
@@ -371,6 +375,7 @@
           (lift-meta :type ::data/type (partial keyword "finance.data.entry"))
           (lift-meta :Payee ::posting/payee)
           (lift-meta :external-id ::entry/external-id)
+          (lift-meta :transfer ::posting/transfer)
           (as-> posting
             (cond-> posting
               (::lot-cost posting)
@@ -386,9 +391,9 @@
               (and (or (nil? (:value amount))
                        (zero? (:value amount)))
                    (= :balanced-virtual posting-type)
-                   (:finance.balance/amount posting))
-              (-> (assoc :data/type :finance.entry/balance-check)
-                  (dissoc :finance.posting/amount))
+                   (::balance/amount posting))
+              (-> (assoc ::data/type :finance.data.entry/balance-check)
+                  (dissoc ::posting/amount))
 
               ;; If type is overridden and amount is zero, remove it.
               (and (not= ::entry/posting (::data/type posting))

@@ -34,3 +34,37 @@
          (let [[a b] (sort times)]
            (Interval. a b)))
        (gen/vector (s/gen :time/at) 2))))
+
+
+
+;; ## Time Utilities
+
+(defn now
+  "Return the current instant in time."
+  ^Instant
+  []
+  (Instant/now))
+
+
+(defn today
+  "Return the current local date."
+  ^LocalDate
+  []
+  ,,,)
+
+
+
+;; ## Coercions
+
+(defn parse-instant
+  "Parse a string as an instant in time."
+  ^Instant
+  [string]
+  (Instant/parse string))
+
+
+(defn parse-local-date
+  "Parse a string as a local date."
+  ^LocalDate
+  [string]
+  (LocalDate/parse string))

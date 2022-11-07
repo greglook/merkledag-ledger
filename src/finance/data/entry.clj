@@ -3,12 +3,27 @@
   (:require
     [clojure.spec.alpha :as s]
     [finance.data.account :as account]
-    [finance.data.core :as data :refer [defattr defentity defref]]
+    [finance.data.core :as data :refer [defattr defident defref defentity]]
     [finance.data.time :as time]
     [finance.data.transaction :as transaction]))
 
 
-;; ## General Attributes
+;; ## Data Attributes
+
+(defref ::account
+  "Account the entry belongs to."
+  ::account/id)
+
+
+(defref ::transaction
+  "Transaction this entry is part of."
+  ::transaction/id)
+
+
+(defident ::id
+  "Unique identifier for the entry."
+  "ent")
+
 
 (defattr ::date
   "Calendar date the entry occurred at. Used to order entries inside the
@@ -27,7 +42,13 @@
   ::time/interval)
 
 
-(defattr ::rank
+(defattr ::txn-rank
+  "Extra numeric value to determine the ordering of entries within a
+  transaction."
+  number?)
+
+
+(defattr ::journal-rank
   "Extra numeric value to determine the ordering of entries within an account
   register which have the same timestamp."
   number?)
@@ -39,36 +60,37 @@
   :db/index true)
 
 
+(defattr ::description
+  "Extra human-readable text description for an entry."
+  string?)
+
+
 (defattr ::source-lines
   "Set of lines pulled from third-party sources that this entry represents."
-  ;; TODO: how does this collection spec + multi-cardinality work? Should this just be `string?`?
   (s/coll-of string? :kind set?)
   :db/cardinality :db.cardinality/many)
 
 
-
-;; ## References
-
-(defref ::account
-  "Account the entry belongs to."
-  ::account/id)
-
-
-(defref ::transaction
-  "Transaction the entry is part of."
-  ::transaction/id)
-
-
-
 ;; ## Entry Entities
 
-(defmulti journal-entry ::data/type)
+(defmulti entry-spec ::data/type)
 
 
-(s/def :finance.data/entry
-  (s/multi-spec journal-entry ::data/type))
+(defmethod data/normal-form :finance.data/entry
+  (s/merge
+    (s/keys :req [::account/id
+                  ::transaction/id
+                  ::id
+                  ::date]
+            :opt [::time
+                  ::rank
+                  ::description
+                  ::external-id
+                  ::source-lines])
+    (s/multi-spec entry-spec ::data/type)))
 
 
+#_
 (defmacro defentry
   "Define a new type of financial entry. Takes a simple keyword like `:posting`
   and defines a new entity in the entry namespace like
@@ -91,8 +113,7 @@
                       (distinct)
                       (vec))]
     `(do
-       (defentity
-         ~type-key
+       (defentity ~type-key
          ~doc-str
          :req ~req-keys
          :opt ~opt-keys)
@@ -101,22 +122,23 @@
          ~type-key))))
 
 
-
 ;; ## Basic Entry Types
 
+#_
 (defentry :open-account
   "Marks an account as being open for transactions.")
 
 
+#_
 (defentry :close-account
   "Marks an account as being closed to new transactions.")
 
 
+#_
 (defentry :note
   "Free-form note in the account history."
   :req [::description]
   :opt [::interval])
-
 
 
 ;; ## Functions

@@ -7,23 +7,39 @@
     [finance.data.core :as data :refer [defattr defentity defref]]))
 
 
-(defattr ::id
+;; ## Data Attributes
+
+(defref ::book
+  "Book the invoice belongs to."
+  ::book/id)
+
+
+(defident ::id
   "Unique identifier for an invoice."
-  ::data/some-string
-  :db/unique :db.unique/identity)
+  "inv")
 
 
 ;; TODO: other invoice attributes; should be able to independently model a receipt
 
 
-;; TODO: how does this stay ordered?
-(defattr ::items
-  "Collection of items that make up the invoice."
-  (s/coll-of :finance.data/item :kind vector?)
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/many)
-
+;; ## Normal Form
 
 (defentity :finance.data/invoice
-  "An invoice of items."
-  :req [::id])
+  :req [::book/id
+        ::id
+        ,,,]
+  :opt [,,,])
+
+
+;; ## Tree Form
+
+;; TODO: these show up on postings, though...
+(s/def ::items
+  (s/coll-of (data/tree-spec :finance.data/item)
+             :kind vector?))
+
+
+(defmethod data/tree-form :finance.data/invoice
+  [_]
+  (s/keys :req [,,,]
+          :opt [,,,]))

@@ -1,11 +1,14 @@
 (ns finance.data.item
+  "An individual item in an invoice of detailed charges."
   (:require
     [clojure.spec.alpha :as s]
-    [finance.data.core :refer [defattr defentity defref]]
+    [finance.data.core :refer [defattr defident defref defentity]]
     [finance.data.entry :as entry]
     [finance.data.invoice :as invoice]
     [finance.data.quantity :as quantity]))
 
+
+;; ## Data Attributes
 
 (defref ::invoice
   "Invoice the item is part of."
@@ -15,6 +18,11 @@
 (defref ::entry
   "Transaction entry the item contributes to."
   ::entry/id)
+
+
+(defident ::id
+  "Unique identifier for the item."
+  "item")
 
 
 (defattr ::title
@@ -61,15 +69,27 @@
   keyword?)
 
 
+;; ## Normal Form
+
+;; TODO: how are items ordered in an invoice?
 (defentity :finance.data/item
-  "An individual item in an invoice of detailed charges."
-  :req [::title]
-  :opt [::description
+  :req [::invoice/id
+        ::id
+        ::title]
+  :opt [::entry/id
+        ::description
         ::total
         ::amount
         ::price
         ::vendor])
 
+
+;; ## Tree Form
+
+,,,
+
+
+;; ## Functions
 
 ;; TODO: validations
 ;; - amount and price must be set together

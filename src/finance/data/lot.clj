@@ -1,4 +1,5 @@
 (ns finance.data.lot
+  "A single lot making up part of a position."
   (:require
     [finance.data.core :refer [defattr defentity]]
     [finance.data.quantity :as quantity]
@@ -16,7 +17,6 @@
 
 
 (defentity :finance.data/lot
-  "A single lot making up part of a position."
   ;; TODO: seems like this is missing another amount
   :req [::amount]
   :opt [::date])
